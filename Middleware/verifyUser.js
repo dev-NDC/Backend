@@ -35,8 +35,6 @@ const Verification = () => {
                         error: err.message
                     });
                 }
-
-                console.log("Decoded Token:", decoded);
                 req.user = decoded; // Attach user info to request
                 next();
             });
