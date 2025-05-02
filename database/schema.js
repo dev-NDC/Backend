@@ -34,14 +34,26 @@ const resultSchema = new mongoose.Schema({
   mimeType: String,
 }, { _id: true });
 
-
+// Main User schema
 const userSchema = new mongoose.Schema({
   selectedPlan: Number,
+
+  // Support for multiple roles
   role: {
     type: [String],
-    enum: ['user', 'admin', 'contractor'],
+    enum: ['user', 'admin', 'agency'],
     default: ['user']
   },
+
+  // For agency users only: list of user IDs they manage
+  handledCompanies: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User', // Only users with role: 'user'
+    }
+  ],
+
+  // Personal info
   contactInfoData: {
     firstName: String,
     lastName: String,
@@ -49,6 +61,8 @@ const userSchema = new mongoose.Schema({
     email: { type: String, unique: true, required: true },
     password: String,
   },
+
+  // Company info (optional for agency/admin/user)
   companyInfoData: {
     companyName: String,
     usdot: String,
@@ -62,6 +76,8 @@ const userSchema = new mongoose.Schema({
     state: String,
     zip: String,
   },
+
+  // Payment info
   paymentData: {
     creditCardNumber: String,
     cvv: String,
@@ -73,6 +89,8 @@ const userSchema = new mongoose.Schema({
     accountName: String,
     accountType: String,
   },
+
+  // Form submission
   submitFormData: {
     firstName: String,
     lastName: String,
@@ -80,6 +98,8 @@ const userSchema = new mongoose.Schema({
     signature: String,
     agree: Boolean,
   },
+
+  // Drivers managed by this user
   drivers: [{
     name: String,
     email: String,
@@ -91,6 +111,8 @@ const userSchema = new mongoose.Schema({
     deletionDate: String,
     isDeleted: { type: Boolean, default: false },
   }],
+
+  // Related documents
   results: [resultSchema],
   invoices: [invoiceSchema],
   certificates: [certificateSchema],
@@ -104,7 +126,6 @@ userSchema.pre("save", async function (next) {
   this.contactInfoData.password = await bcrypt.hash(this.contactInfoData.password, salt);
   next();
 });
-
 
 const User = mongoose.model("User", userSchema);
 

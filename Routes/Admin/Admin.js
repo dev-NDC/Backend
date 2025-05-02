@@ -21,6 +21,13 @@ AdminRoutes.post("/addDriver",authenticateAndAuthorize(["admin"]) ,AddDriver);
 AdminRoutes.post("/updateDriver",authenticateAndAuthorize(["admin"]) ,updateDriver);
 AdminRoutes.post("/deleteDriver",authenticateAndAuthorize(["admin"]) ,deleteDriver);
 
+// routes for agency
+const {getAllAgencyData, getSingleAgencyData, getCompanyList, updateAgencyData} = require("../../Controllers/Admin/Agency")
+AdminRoutes.get("/getAllAgencyData",authenticateAndAuthorize(["admin"]) ,getAllAgencyData);
+AdminRoutes.post("/getSingleAgencyDetails",authenticateAndAuthorize(["admin"]) ,getSingleAgencyData);
+AdminRoutes.get("/getCompanyList",authenticateAndAuthorize(["admin"]) ,getCompanyList);
+AdminRoutes.post("/updateAgencyData",authenticateAndAuthorize(["admin"]) ,updateAgencyData);
+
 
 // routes for certificate 
 const {uploadCertificate,editCertificate,deleteCertificate} = require("../../Controllers/Admin/Certificate")

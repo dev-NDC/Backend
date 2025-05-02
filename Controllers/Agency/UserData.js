@@ -2,8 +2,23 @@ const User = require("../../database/schema"); // Import User model
 
 const getAllUserData = async (req, res) => {
     try {
-        // Fetch all users from the database
-        const users = await User.find({}, "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers");
+        const userId = req.user.userId;
+
+        // Get the current user (likely an agency) to access handledCompanies
+        const currentUser = await User.findById(userId);
+        if (!currentUser || !currentUser.handledCompanies) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "You do not have permission to access this data",
+            });
+        }
+
+        // Fetch only users whose _id is in handledCompanies
+        const users = await User.find(
+            { _id: { $in: currentUser.handledCompanies } },
+            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers"
+        );
+
         // Transform the data
         const formattedUsers = users.map(user => ({
             companyName: user.companyInfoData?.companyName || "N/A",
@@ -13,6 +28,7 @@ const getAllUserData = async (req, res) => {
             status: "active",
             id: user._id
         }));
+
         res.status(200).json({
             errorStatus: 0,
             message: "Data retrieved successfully",
@@ -27,6 +43,7 @@ const getAllUserData = async (req, res) => {
         });
     }
 };
+
 
 const getSingleUserDetails = async (req, res) => {
     try {

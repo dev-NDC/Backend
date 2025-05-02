@@ -8,12 +8,12 @@ const port = process.env.PORT || 8000;
 
 require("./database/db");
 
-// ✅ Increase request payload limits
+// Increase request payload limits
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors());
 
-// ✅ If you're using express.json() as well, apply limit there too
+// If you're using express.json() as well, apply limit there too
 app.use(express.json({ limit: '50mb' }));
 
 // ------------------ ROUTES ------------------
@@ -30,6 +30,10 @@ app.use("/api/user", userDataRoutes);
 // Admin routes
 const AdminRoutes = require("./Routes/Admin/Admin");
 app.use("/api/admin", AdminRoutes);
+
+// Agency routes
+const AgencyRoutes = require("./Routes/Agency/Agency");
+app.use("/api/agency", AgencyRoutes);
 
 // ------------------ SERVER ------------------
 app.listen(port, () => {
