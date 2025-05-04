@@ -1,4 +1,7 @@
 const User = require("../../database/schema")
+const transporter = require("./Transpoter")
+const crypto = require("crypto");
+const bcrypt = require("bcrypt");
 
 const getAllAgencyData = async (req, res) => {
     try {
@@ -160,5 +163,65 @@ const updateAgencyData = async (req, res) => {
 };
 
 
+const createNewAgency = async (req, res) => {
+    try {
+        const { email } = req.body;
+        // Check for existing agency
+        const existingUser = await User.findOne({ "contactInfoData.email": email });
+        if (existingUser) {
+            return res.status(409).json({
+                errorStatus: 1,
+                message: "Agency with this email already exists.",
+            });
+        }
 
-module.exports = { getAllAgencyData, getSingleAgencyData, getCompanyList, updateAgencyData };
+        // Generate random password
+        const randomPassword = crypto.randomBytes(8).toString("hex");
+        const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+        // Create new agency user
+        const newAgency = new User({
+            role: ["agency"],
+            contactInfoData: {
+                email,
+                password: hashedPassword,
+            },
+            companyInfoData: {
+                companyEmail: email,
+            },
+        });
+
+        // Generate reset token (you can also store this in DB)
+        const resetToken = crypto.randomBytes(20).toString("hex");
+        const resetLink = `https://yourdomain.com/reset-password?token=${resetToken}&email=${email}`;
+
+        // Send reset email
+        await transporter.sendMail({
+            from: process.env.SMTP_USER,
+            to: email,
+            subject: "Set Your Password",
+            html:`
+          <h3>Welcome to the Agency Portal</h3>
+          <p>You have been registered as an agency user.</p>
+          <p>Please set your password using the link below:</p>
+          <a href="${resetLink}">${resetLink}</a>
+          <p>This link will expire in 1 hour (implement expiration logic on backend).</p>
+        `,
+        });
+        await newAgency.save();
+        res.status(201).json({
+            errorStatus: 0,
+            message: "Agency created and reset email sent.",
+        });
+    } catch (error) {
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Server error while creating agency",
+            error: error.message,
+        });
+    }
+};
+
+
+
+module.exports = { getAllAgencyData, getSingleAgencyData, getCompanyList, updateAgencyData, createNewAgency };

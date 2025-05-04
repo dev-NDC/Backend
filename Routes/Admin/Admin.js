@@ -22,11 +22,18 @@ AdminRoutes.post("/updateDriver",authenticateAndAuthorize(["admin"]) ,updateDriv
 AdminRoutes.post("/deleteDriver",authenticateAndAuthorize(["admin"]) ,deleteDriver);
 
 // routes for agency
-const {getAllAgencyData, getSingleAgencyData, getCompanyList, updateAgencyData} = require("../../Controllers/Admin/Agency")
+const {getAllAgencyData, getSingleAgencyData, getCompanyList, updateAgencyData, createNewAgency} = require("../../Controllers/Admin/Agency")
 AdminRoutes.get("/getAllAgencyData",authenticateAndAuthorize(["admin"]) ,getAllAgencyData);
 AdminRoutes.post("/getSingleAgencyDetails",authenticateAndAuthorize(["admin"]) ,getSingleAgencyData);
 AdminRoutes.get("/getCompanyList",authenticateAndAuthorize(["admin"]) ,getCompanyList);
 AdminRoutes.post("/updateAgencyData",authenticateAndAuthorize(["admin"]) ,updateAgencyData);
+AdminRoutes.post("/createNewAgency",authenticateAndAuthorize(["admin"]) ,createNewAgency);
+
+//export routes
+const {exportAgency, exportDriver, exportCompany} = require("../../Controllers/Admin/Export")
+AdminRoutes.get("/exportAgency",authenticateAndAuthorize(["admin"]) ,exportAgency);
+AdminRoutes.get("/exportDriver",authenticateAndAuthorize(["admin"]) ,exportDriver);
+AdminRoutes.get("/exportCompany",authenticateAndAuthorize(["admin"]) ,exportCompany);
 
 
 // routes for certificate 

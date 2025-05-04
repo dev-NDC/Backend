@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 
+
 // Certificate schema
 const certificateSchema = new mongoose.Schema({
   description: String,
