@@ -7,7 +7,7 @@ const getAllAgencyData = async (req, res) => {
     try {
         // Get all users that have 'agency' in their roles
         const agencies = await User.find(
-            { role: { $in: ['agency'] } },
+            { role: ['agency'] },
             "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName handledCompanies"
         );
 
@@ -89,7 +89,6 @@ const getSingleAgencyData = async (req, res) => {
 
 const getCompanyList = async (req, res) => {
     try {
-        // Fetch users whose role is exactly ['user'] (i.e., companies, not agencies or admins)
         const users = await User.find(
             { role: ["user"] },
             "companyInfoData.companyName"
@@ -165,7 +164,8 @@ const updateAgencyData = async (req, res) => {
 
 const createNewAgency = async (req, res) => {
     try {
-        const { email } = req.body;
+        const { email, agencyName, contactNumber } = req.body;
+
         // Check for existing agency
         const existingUser = await User.findOne({ "contactInfoData.email": email });
         if (existingUser) {
@@ -179,36 +179,47 @@ const createNewAgency = async (req, res) => {
         const randomPassword = crypto.randomBytes(8).toString("hex");
         const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
+        // Generate reset token and expiry (1 hour from now)
+        const resetToken = crypto.randomBytes(20).toString("hex");
+        const resetTokenExpiry = Date.now() + 3600000;  // Token expires in 1 hour
+
         // Create new agency user
         const newAgency = new User({
             role: ["agency"],
             contactInfoData: {
                 email,
+                phone : contactNumber,  // Mapping contact number
                 password: hashedPassword,
             },
             companyInfoData: {
+                companyName: agencyName,       // Save agencyName
+                contactNumber : contactNumber,    // Save contactNumber
                 companyEmail: email,
             },
+            resetToken,  // Save reset token
+            resetTokenExpiry,  // Save reset token expiry
         });
 
-        // Generate reset token (you can also store this in DB)
-        const resetToken = crypto.randomBytes(20).toString("hex");
-        const resetLink = `https://yourdomain.com/reset-password?token=${resetToken}&email=${email}`;
+        // Generate reset link
+        const resetLink = `http://localhost:3000/resetPassword?token=${resetToken}&email=${email}`;
 
         // Send reset email
         await transporter.sendMail({
             from: process.env.SMTP_USER,
             to: email,
             subject: "Set Your Password",
-            html:`
-          <h3>Welcome to the Agency Portal</h3>
-          <p>You have been registered as an agency user.</p>
-          <p>Please set your password using the link below:</p>
-          <a href="${resetLink}">${resetLink}</a>
-          <p>This link will expire in 1 hour (implement expiration logic on backend).</p>
-        `,
+            html: `
+                <h3>Welcome to the Agency Portal</h3>
+                <p>You have been registered as an agency user.</p>
+                <p>Please set your password using the link below:</p>
+                <a href="${resetLink}">${resetLink}</a>
+                <p>This link will expire in 1 hour.</p>
+            `,
         });
+
+        // Save new agency to the database
         await newAgency.save();
+
         res.status(201).json({
             errorStatus: 0,
             message: "Agency created and reset email sent.",
@@ -221,6 +232,7 @@ const createNewAgency = async (req, res) => {
         });
     }
 };
+
 
 
 

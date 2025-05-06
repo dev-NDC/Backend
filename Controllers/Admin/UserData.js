@@ -2,8 +2,12 @@ const User = require("../../database/schema"); // Import User model
 
 const getAllUserData = async (req, res) => {
     try {
-        // Fetch all users from the database
-        const users = await User.find({}, "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers");
+        // Fetch users with only the "user" role
+        const users = await User.find(
+            { role: ["user"] },  // Ensures the role array has exactly one element and that is "user"
+            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers"
+        );
+
         // Transform the data
         const formattedUsers = users.map(user => ({
             companyName: user.companyInfoData?.companyName || "N/A",
@@ -13,6 +17,7 @@ const getAllUserData = async (req, res) => {
             status: "active",
             id: user._id
         }));
+
         res.status(200).json({
             errorStatus: 0,
             message: "Data retrieved successfully",
@@ -27,6 +32,7 @@ const getAllUserData = async (req, res) => {
         });
     }
 };
+
 
 const getSingleUserDetails = async (req, res) => {
     try {
@@ -67,7 +73,7 @@ const getSingleUserDetails = async (req, res) => {
 const updateCompanyInformation = async (req, res) => {
     try {
         const id = req.body.currentId;
-        const companyInfoData  = req.body.data;
+        const companyInfoData = req.body.data;
 
         if (!id) {
             return res.status(400).json({
@@ -89,7 +95,7 @@ const updateCompanyInformation = async (req, res) => {
         res.status(200).json({
             success: true,
             message: "Company information updated successfully",
-            companyInfoData: updatedUser.companyInfoData
+            companyInfoData: updatedUser
         });
     } catch (error) {
         res.status(500).json({
@@ -103,7 +109,7 @@ const updateCompanyInformation = async (req, res) => {
 const updatePaymentInformation = async (req, res) => {
     try {
         const id = req.body.currentId;
-        const paymentData  = req.body.data;
+        const paymentData = req.body.data;
 
         if (!id) {
             return res.status(400).json({
@@ -125,7 +131,7 @@ const updatePaymentInformation = async (req, res) => {
         res.status(200).json({
             success: true,
             message: "Payment information updated successfully",
-            paymentData: updatedUser.paymentData
+            paymentData: updatedUser
         });
     } catch (error) {
         res.status(500).json({
@@ -136,4 +142,44 @@ const updatePaymentInformation = async (req, res) => {
     }
 }
 
-module.exports = { getAllUserData,getSingleUserDetails,updateCompanyInformation,updatePaymentInformation };
+const updateMembershipInformation = async (req, res) => {
+    try {
+        const id = req.body.currentId;
+        const membershipData = req.body.data;
+
+        if (!id) {
+            return res.status(400).json({
+                errorStatus: 1,
+                message: "User ID is required"
+            });
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(
+            id,
+            { Membership: membershipData },
+            { new: true, runValidators: true }
+        ).select("-contactInfoData.password");
+
+        if (!updatedUser) {
+            return res.status(404).json({
+                errorStatus: 1,
+                message: "User not found"
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Membership information updated successfully",
+            Membership: updatedUser
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            errorStatus: 1,
+            error,
+            message: "Server error, please try again later"
+        });
+    }
+};
+
+module.exports = { getAllUserData, getSingleUserDetails, updateCompanyInformation, updatePaymentInformation, updateMembershipInformation};

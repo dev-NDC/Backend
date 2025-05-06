@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
-
+const crypto = require("crypto");
 
 // Certificate schema
 const certificateSchema = new mongoose.Schema({
@@ -10,6 +10,22 @@ const certificateSchema = new mongoose.Schema({
   certificateFile: Buffer,
   filename: String,
   mimeType: String,
+}, { _id: true });
+
+//document schema
+const documentSchema = new mongoose.Schema({
+  description: String,
+  date: Date,
+  documentFile: Buffer,
+  filename: String,
+  mimeType: String,
+  uploadedBy: {
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    name: String,
+  },
 }, { _id: true });
 
 // Invoice schema
@@ -35,10 +51,16 @@ const resultSchema = new mongoose.Schema({
   mimeType: String,
 }, { _id: true });
 
+// Membership schema
+const MembershipSchema = new mongoose.Schema({
+  selectedPlan: Number,
+  planStartDate: Date,
+  planEndDate: Date,
+  planStatus: { type: String, enum: ['Active', 'Inactive'], default: 'Inactive' },
+}, { _id: true });
+
 // Main User schema
 const userSchema = new mongoose.Schema({
-  selectedPlan: Number,
-
   // Support for multiple roles
   role: {
     type: [String],
@@ -117,6 +139,13 @@ const userSchema = new mongoose.Schema({
   results: [resultSchema],
   invoices: [invoiceSchema],
   certificates: [certificateSchema],
+  documents: [documentSchema],
+  Membership : MembershipSchema,
+
+
+  // Reset token fields
+  resetToken: String,
+  resetTokenExpiry: Date,
 
 }, { timestamps: true });
 
