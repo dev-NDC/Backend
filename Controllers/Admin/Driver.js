@@ -27,7 +27,7 @@ const AddDriver = async (req, res) => {
             dob,
             phone,
             creationDate: new Date().toISOString(), // Current date
-            createdBy: "Customer", // Set createdBy to Customer
+            createdBy: "Admin", // Set createdBy to Customer
             deletionDate: null, // Leave empty
             isDeleted: false
         };
