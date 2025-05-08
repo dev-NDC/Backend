@@ -10,48 +10,52 @@ const User = require("../../database/schema")
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        if (email === "" || password == "") {
+        if (!email || !password) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "Email and password are required."
-            })
+            });
         }
-        const user = await User.findOne({ "contactInfoData.email": email })
+
+        const user = await User.findOne({ "contactInfoData.email": email });
         if (!user) {
             return res.status(401).json({
                 errorStatus: 1,
                 message: "Incorrect email or password",
-            })
+            });
         }
+
         const savedPassword = user.contactInfoData.password;
         const isMatch = await bcrypt.compare(password, savedPassword);
         if (!isMatch) {
             return res.status(401).json({
                 errorStatus: 1,
                 message: "Incorrect email or password",
-            })
+            });
         }
 
         // Generate JWT token
         const token = jwt.sign(
-            { userId: user._id, email: user.contactInfoData.email },
+            { userId: user._id, email: user.contactInfoData.email, role: user.role },
             JWT_SECRET_KEY,
-            { expiresIn: "24h" }
+            { expiresIn: "30d" }
         );
 
         res.status(200).json({
             errorStatus: 0,
-            message: "Login successfull",
-            token
-        })
+            message: "Login successful",
+            token,
+            role: user.role,
+        });
 
     } catch (error) {
         res.status(500).json({
             errorStatus: 1,
-            message: 'server error, please try again later'
-        })
+            message: 'Server error, please try again later'
+        });
     }
-}
+};
+
 
 const signup = async (req, res) => {
     try {
