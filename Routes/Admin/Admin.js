@@ -8,7 +8,6 @@ const {verifyAdmin} = require("../../Controllers/Admin/ValidateAdmin");
 const {getAllUserData,getSingleUserDetails,updateCompanyInformation,updatePaymentInformation, updateMembershipInformation } = require("../../Controllers/Admin/UserData")
 const {AddDriver, updateDriver, deleteDriver} = require("../../Controllers/Admin/Driver")
 const {authenticateAndAuthorize} = require("../../Middleware/authenticateAndAuthorize")
-
 const {Verification} = require("../../Middleware/verifyAdmin")
 
 
@@ -36,6 +35,15 @@ AdminRoutes.get("/getAllAdminData",authenticateAndAuthorize(["admin"]) ,getAllAd
 AdminRoutes.post("/updateAdminData",authenticateAndAuthorize(["admin"]) ,updateAdminInformation);
 AdminRoutes.post("/deleteAdmin",authenticateAndAuthorize(["admin"]) ,deleteAdminAccount);
 AdminRoutes.post("/createNewAdmin",authenticateAndAuthorize(["admin"]) ,createNewAdmin);
+
+// routes for Random
+const {addRandomDriver, fetchRandomDriver, fetchRandomData, deleteRandomEntry, updateRandomStatus} = require("../../Controllers/Admin/Random")
+AdminRoutes.post("/addRandomDriver",authenticateAndAuthorize(["admin"]) ,addRandomDriver);
+AdminRoutes.get("/fetchRandomDriver",authenticateAndAuthorize(["admin"]) ,fetchRandomDriver);
+AdminRoutes.get("/fetchRandomData",authenticateAndAuthorize(["admin"]) ,fetchRandomData);
+AdminRoutes.post("/deleteRandomDriver",authenticateAndAuthorize(["admin"]) ,deleteRandomEntry);
+AdminRoutes.post("/updateRandomStatus",authenticateAndAuthorize(["admin"]) ,updateRandomStatus);
+
 
 //export routes
 const {exportAgency, exportDriver, exportCompany} = require("../../Controllers/Admin/Export")

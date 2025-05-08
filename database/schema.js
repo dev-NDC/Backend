@@ -12,6 +12,50 @@ const certificateSchema = new mongoose.Schema({
   mimeType: String,
 }, { _id: true });
 
+const randomSchema = new mongoose.Schema({
+  year: {
+    type: Number,
+    required: true,
+  },
+  quarter: {
+    type: String,
+    enum: ['Q1', 'Q2', 'Q3', 'Q4'],
+    required: true,
+  },
+  company: {
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    name: {
+      type: String,
+      required: true,
+    }
+  },
+  driver: {
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
+    name: {
+      type: String,
+      required: true,
+    }
+  },
+  testType: {
+    type: String,
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'completed', 'scheduled'],
+    default: 'pending'
+  }
+}, { _id: true });
+
+
+
 //document schema
 const documentSchema = new mongoose.Schema({
   description: String,
@@ -67,6 +111,11 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin', 'agency'],
     default: ['user']
   },
+  
+  isSuperAdmin: {
+    type: Boolean,
+    default: false
+  },  
 
   // For agency users only: list of user IDs they manage
   handledCompanies: [
@@ -141,7 +190,7 @@ const userSchema = new mongoose.Schema({
   certificates: [certificateSchema],
   documents: [documentSchema],
   Membership : MembershipSchema,
-
+  randoms: [randomSchema],
 
   // Reset token fields
   resetToken: String,
