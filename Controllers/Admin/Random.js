@@ -4,7 +4,7 @@ const User = require("../../database/schema")
 const fetchRandomDriver = async (req, res) => {
     try {
         // Fetch all users who have only 'user' role
-        const companies = await User.find({ role: ['user'] });
+        const companies = await User.find({ role: ['User'] });
 
         const responseData = companies.map(company => {
             const drivers = company.drivers

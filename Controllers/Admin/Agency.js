@@ -3,11 +3,39 @@ const transporter = require("./Transpoter")
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 
+const getCompanyList = async (req, res) => {
+    try {
+        const users = await User.find(
+            { role: ["User"] },
+            "companyInfoData.companyName"
+        );
+
+        const companies = users
+            .filter(u => u.companyInfoData?.companyName)
+            .map(u => ({
+                userId: u._id,
+                companyName: u.companyInfoData.companyName
+            }));
+        res.status(200).json({
+            errorStatus: 0,
+            message: "Companies retrieved successfully",
+            data: companies
+        });
+    } catch (error) {
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Failed to fetch companies",
+            error: error.message
+        });
+    }
+};
+
+
 const getAllAgencyData = async (req, res) => {
     try {
         // Get all users that have 'agency' in their roles
         const agencies = await User.find(
-            { role: ['agency'] },
+            { role: ['Agency'] },
             "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName handledCompanies"
         );
 
@@ -40,15 +68,10 @@ const getSingleAgencyData = async (req, res) => {
     try {
         const agencyId = req.body.id;
 
-        // Find the agency and populate handledCompanies
         const agency = await User.findOne(
-            { _id: agencyId, role: { $in: ['agency'] } },
+            { _id: agencyId, role: { $in: ['Agency'] } },
             "companyInfoData handledCompanies"
-        ).populate({
-            path: "handledCompanies",
-            match: { role: { $in: ['user'] } },
-            select: "companyInfoData.companyName" // Select only needed field
-        });
+        );
 
         if (!agency) {
             return res.status(404).json({
@@ -62,9 +85,9 @@ const getSingleAgencyData = async (req, res) => {
             agencyEmail: agency.companyInfoData?.companyEmail || "N/A",
             agencyContactNumber: agency.companyInfoData?.contactNumber || "N/A",
             numberOfCompanies: agency.handledCompanies?.length || 0,
-            handledCompanies: agency.handledCompanies?.map((company) => ({
+            handledCompanies: agency.handledCompanies?.map(company => ({
                 userId: company._id,
-                companyName: company.companyInfoData?.companyName || "Unnamed Company"
+                companyName: company.name || "Unnamed Company"
             })),
             id: agency._id
         };
@@ -86,65 +109,43 @@ const getSingleAgencyData = async (req, res) => {
 
 
 
-
-const getCompanyList = async (req, res) => {
-    try {
-        const users = await User.find(
-            { role: ["user"] },
-            "companyInfoData.companyName"
-        );
-
-        const companies = users
-            .filter(u => u.companyInfoData?.companyName)
-            .map(u => ({
-                userId: u._id,
-                companyName: u.companyInfoData.companyName
-            }));
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Companies retrieved successfully",
-            data: companies
-        });
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Failed to fetch companies",
-            error: error.message
-        });
-    }
-};
-
 const updateAgencyData = async (req, res) => {
     try {
-        const { data, currentId } = req.body;
+        const { data } = req.body;
+        const currentId = data._id
         const agency = await User.findById(currentId);
+
         if (!agency) {
             return res.status(404).json({
                 errorStatus: 1,
                 message: "Agency not found",
             });
         }
-
-        if (!agency.role.includes('agency')) {
+        if (!agency.role.includes('Agency')) {
             return res.status(400).json({
                 errorStatus: 1,
-                message: "Provided user does not have 'agency' role",
+                message: "Provided user does not have 'Agency' role",
             });
         }
 
         agency.companyInfoData.companyName = data.agencyName;
         agency.companyInfoData.companyEmail = data.agencyEmail;
         agency.companyInfoData.contactNumber = data.agencyContactNumber;
-        agency.companyInfoData.agency = data.agencyName;
+
 
         const handledUserIds = data.handledCompanies.map(c => c.userId);
-
+        console.log*("Handled User IDs:", handledUserIds);
         const validUsers = await User.find({
             _id: { $in: handledUserIds },
-            role: { $in: ['user'] }
-        }).select('_id');
+            role: ['User'] // Ensures exactly ['User']
+        }).select('_id companyInfoData.companyName');
 
-        agency.handledCompanies = validUsers.map(u => u._id); // only ObjectIds
+
+        // Save as subdocuments with _id and name
+        agency.handledCompanies = validUsers.map(u => ({
+            _id: u._id,
+            name: u.companyInfoData?.companyName || 'Unnamed Company',
+        }));
 
         await agency.save();
 
@@ -160,6 +161,7 @@ const updateAgencyData = async (req, res) => {
         });
     }
 };
+
 
 
 const createNewAgency = async (req, res) => {
@@ -185,15 +187,15 @@ const createNewAgency = async (req, res) => {
 
         // Create new agency user
         const newAgency = new User({
-            role: ["agency"],
+            role: ["Agency"],
             contactInfoData: {
                 email,
-                phone : contactNumber,  // Mapping contact number
+                phone: contactNumber,  // Mapping contact number
                 password: hashedPassword,
             },
             companyInfoData: {
                 companyName: agencyName,       // Save agencyName
-                contactNumber : contactNumber,    // Save contactNumber
+                contactNumber: contactNumber,    // Save contactNumber
                 companyEmail: email,
             },
             resetToken,  // Save reset token

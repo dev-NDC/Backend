@@ -45,7 +45,7 @@ const Verification = () => {
                     });
                 }
                 // Check if user has the "agency" role
-                if (!user.role || !user.role.includes("agency")) {
+                if (!user.role || !user.role.includes("Agency")) {
                     return res.status(403).json({
                         errorStatus: 1,
                         message: "Forbidden: You do not have permission to access this resource."

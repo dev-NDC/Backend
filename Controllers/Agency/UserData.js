@@ -25,7 +25,7 @@ const getAllUserData = async (req, res) => {
             companyEmail: user.companyInfoData?.companyEmail || "N/A",
             companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
             activeDriversCount: user.drivers ? user.drivers.filter(driver => !driver.isDeleted).length : 0,
-            status: "active",
+            status: user.Membership?.planStatus || "N/A",
             id: user._id
         }));
 

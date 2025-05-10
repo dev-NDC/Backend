@@ -49,8 +49,8 @@ const randomSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'scheduled'],
-    default: 'pending'
+    enum: ['Pending', 'Completed', 'Scheduled'],
+    default: 'Pending'
   }
 }, { _id: true });
 
@@ -97,10 +97,14 @@ const resultSchema = new mongoose.Schema({
 
 // Membership schema
 const MembershipSchema = new mongoose.Schema({
+  price : Number,
+  planName : String,
   selectedPlan: Number,
   planStartDate: Date,
   planEndDate: Date,
-  planStatus: { type: String, enum: ['Active', 'Inactive'], default: 'Inactive' },
+  orgId : String,
+  locationCode : String,
+  planStatus: { type: String, enum: ['Active', 'Inactive', 'Pending'], default: 'Pending' },
 }, { _id: true });
 
 // Main User schema
@@ -108,20 +112,27 @@ const userSchema = new mongoose.Schema({
   // Support for multiple roles
   role: {
     type: [String],
-    enum: ['user', 'admin', 'agency'],
-    default: ['user']
+    enum: ['User', 'Admin', 'Agency'],
+    default: ['User']
   },
-  
+
   isSuperAdmin: {
     type: Boolean,
     default: false
-  },  
+  },
 
   // For agency users only: list of user IDs they manage
   handledCompanies: [
     {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User', // Only users with role: 'user'
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+      },
+      name: {
+        type: String,
+        required: true
+      }
     }
   ],
 
@@ -159,7 +170,7 @@ const userSchema = new mongoose.Schema({
     accountNumber: String,
     routingNumber: String,
     accountName: String,
-    accountType: String,
+    accountType: { type: String, enum: ['Checking', 'Saving', 'Consumer', 'Business'], default: 'Saving' },
   },
 
   // Form submission
@@ -180,6 +191,7 @@ const userSchema = new mongoose.Schema({
     phone: String,
     creationDate: String,
     createdBy: String,
+    deletedBy: String,
     deletionDate: String,
     isDeleted: { type: Boolean, default: false },
   }],
@@ -189,7 +201,7 @@ const userSchema = new mongoose.Schema({
   invoices: [invoiceSchema],
   certificates: [certificateSchema],
   documents: [documentSchema],
-  Membership : MembershipSchema,
+  Membership: MembershipSchema,
   randoms: [randomSchema],
 
   // Reset token fields

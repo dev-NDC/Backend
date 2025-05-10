@@ -84,7 +84,8 @@ const deleteDriver = async (req, res) => {
             { 
                 $set: { 
                     "drivers.$.isDeleted": true, 
-                    "drivers.$.deletionDate": new Date().toISOString() 
+                    "drivers.$.deletionDate": new Date().toISOString(),
+                    "drivers.$.deletedBy": "Customer" 
                 } 
             },
             { new: true }

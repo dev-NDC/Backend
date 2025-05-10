@@ -3,17 +3,17 @@ const User = require("../../database/schema")
 
 const exportAgency = async (req, res) => {
     try {
-        const agencies = await User.find({ role: "agency" }).populate("handledCompanies");
+        const agencies = await User.find({ role: "Agency" });
 
         const exportData = agencies.map((agency) => {
             const companyNameList = agency.handledCompanies
-                .map((company) => company.companyInfoData?.companyName)
+                .map((company) => company.name)  // Access embedded `name`
                 .filter(Boolean)
                 .join(", ");
 
             return {
                 agencyName: agency.companyInfoData?.companyName || "N/A",
-                companyName: companyNameList || "No Companies Assigned",
+                companyName: companyNameList || "N/A",
                 enrollmentDate: agency.createdAt.toISOString().split("T")[0],
                 totalDrivers: agency.drivers?.length || 0,
             };
@@ -34,13 +34,14 @@ const exportAgency = async (req, res) => {
 };
 
 
+
 const exportDriver = async (req, res) => {
     try {
         // Get all agencies
-        const agencies = await User.find({ role: "agency" }).lean();
+        const agencies = await User.find({ role: "Agency" }).lean();
 
         // Get all users with role 'user' (drivers)
-        const drivers = await User.find({ role: "user" }).lean();
+        const drivers = await User.find({ role: "User" }).lean();
 
         const formattedDrivers = [];
 
@@ -85,13 +86,13 @@ const exportDriver = async (req, res) => {
 const exportCompany = async (req, res) => {
     try {
         // Fetch all users with role 'user' — representing companies
-        const companies = await User.find({ role: "user" });
+        const companies = await User.find({ role: "User" });
 
         const formattedData = companies.map((company) => {
             return {
                 "Company Name": company.companyInfoData?.companyName || "N/A",
-                "Status": company.paymentData?.accountName ? "Active" : "Inactive", // Changed to check paymentData
-                "Membership Active Date": company.paymentData?.accountName ? new Date().toISOString().split("T")[0] : "N/A", // Use current date if active
+                "Status": company.Membership?.planStatus, // Changed to check paymentData
+                "Membership Active Date": company.Membership?.planStartDate || "N/A", // Use current date if active
                 "Membership Price": company.paymentData?.accountName ? "Paid" : "N/A", // Assuming a check for payment
                 "Agency Name": company.companyInfoData?.safetyAgencyName || "N/A", // Changed to correctly access safetyAgencyName
                 "Total Drivers": company.drivers?.length || 0,

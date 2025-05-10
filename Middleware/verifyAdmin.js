@@ -46,7 +46,7 @@ const Verification = () => {
                 }
 
                 // Check if user has the "user" role
-                if (!user.role || !user.role.includes("admin")) {
+                if (!user.role || !user.role.includes("Admin")) {
                     return res.status(403).json({
                         errorStatus: 1,
                         message: "Forbidden: You do not have permission to access this resource."

@@ -2,9 +2,14 @@ const bcrypt = require("bcrypt")
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const transporter = require("./Transpoter")
+const {createCustomPDF} = require("./GenerateSignUpPDF")
 
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
 const User = require("../../database/schema")
+const fs = require("fs");
+const path = require("path");
+const PDFDocument = require("pdfkit");
+
 
 
 const login = async (req, res) => {
@@ -56,7 +61,6 @@ const login = async (req, res) => {
     }
 };
 
-
 const signup = async (req, res) => {
     try {
         const { email } = req.body.contactInfoData;
@@ -69,11 +73,13 @@ const signup = async (req, res) => {
         }
         const newUser = new User(req.body);
         await newUser.save();
+        createCustomPDF(req.body);
         res.status(200).json({
             errorStatus: 0,
             message: "Account created Successfully"
         })
     } catch (error) {
+        console.log(error)
         res.status(500).json({
             errorStatus: 1,
             error,

@@ -4,20 +4,19 @@ const getAllUserData = async (req, res) => {
     try {
         // Fetch users with only the "user" role
         const users = await User.find(
-            { role: ["user"] },  // Ensures the role array has exactly one element and that is "user"
-            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers"
+            { role: ["User"] },  // Ensures the role array has exactly one element and that is "user"
+            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers Membership"
         );
-
         // Transform the data
         const formattedUsers = users.map(user => ({
             companyName: user.companyInfoData?.companyName || "N/A",
             companyEmail: user.companyInfoData?.companyEmail || "N/A",
             companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
             activeDriversCount: user.drivers ? user.drivers.filter(driver => !driver.isDeleted).length : 0,
-            status: "active",
+            status: user.Membership?.planStatus || "N/A",
             id: user._id
         }));
-
+        
         res.status(200).json({
             errorStatus: 0,
             message: "Data retrieved successfully",

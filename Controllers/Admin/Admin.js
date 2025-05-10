@@ -6,11 +6,12 @@ const bcrypt = require("bcrypt");
 
 const getAllAdminData = async (req, res) => {
     try {
-        const admins = await User.find({ role: "admin" });
+        const admins = await User.find({ role: "Admin" });
 
         const formattedAdmins = admins.map((admin) => ({
             _id: admin._id,
-            name: `${admin.contactInfoData.firstName || ""} ${admin.contactInfoData.lastName || ""}`.trim(),
+            firstName: admin.contactInfoData.firstName || "",
+            lastName: admin.contactInfoData.lastName || "",
             email: admin.contactInfoData.email || "",
             contactNumber: admin.contactInfoData.phone || "",
         }));
@@ -33,23 +34,25 @@ const getAllAdminData = async (req, res) => {
 const updateAdminInformation = async (req, res) => {
     try {
         const { contactInfoData } = req.body;
-
+        console.log("Contact Info Data:", contactInfoData);
         if (!contactInfoData || !contactInfoData._id) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "Missing admin ID or contact info"
             });
         }
-
-        const { _id, name, email, contactNumber } = contactInfoData;
+        
+        const { _id, firstName, lastName, email, contactNumber } = contactInfoData;
 
         const updatedUser = await User.findByIdAndUpdate(
             _id,
             {
                 $set: {
-                    "contactInfoData.firstName": name,
+                    "contactInfoData.firstName": firstName,
+                    "contactInfoData.lastName": lastName,
                     "contactInfoData.email": email,
-                    "contactInfoData.phone": contactNumber
+                    "contactInfoData.phone": contactNumber,
+                    "companyInfoData.email": email
                 }
             },
             { new: true }
@@ -65,7 +68,6 @@ const updateAdminInformation = async (req, res) => {
         res.status(200).json({
             errorStatus: 0,
             message: "Admin information updated successfully",
-            data: updatedUser
         });
 
     } catch (error) {
@@ -137,7 +139,7 @@ const createNewAdmin = async (req, res) => {
 
         // Create new admin user
         const newAdmin = new User({
-            role: ["admin"],
+            role: ["Admin"],
             contactInfoData: {
                 firstName,
                 lastName,
