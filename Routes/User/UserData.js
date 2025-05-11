@@ -13,4 +13,10 @@ userDataRoutes.post("/addDriver", authenticateAndAuthorize(["User"]),AddDriver);
 userDataRoutes.post("/updateDriver", authenticateAndAuthorize(["User"]),updateDriver);
 userDataRoutes.post("/deleteDriver", authenticateAndAuthorize(["User"]),deleteDriver);
 
+
+// routes for create new order
+const {getAllCompanyAllDetials, getSiteInformation} = require("../../Controllers/User/CreateNewOrder")
+userDataRoutes.get("/getAllCompanyAllDetials",authenticateAndAuthorize(["User"]), getAllCompanyAllDetials);
+userDataRoutes.post("/getSiteInformation",authenticateAndAuthorize(["User"]), getSiteInformation);
+
 module.exports = userDataRoutes;

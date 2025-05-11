@@ -41,4 +41,9 @@ AgencyRoutes.post("/uploadResult",authenticateAndAuthorize(["Agency"]),upload.si
 AgencyRoutes.post("/editResult",authenticateAndAuthorize(["Agency"]), editResult);
 AgencyRoutes.post("/deleteResult",authenticateAndAuthorize(["Agency"]), deleteResult);
 
+// routes for create new order
+const {getAllCompanyAllDetials, getSiteInformation} = require("../../Controllers/Agency/CreateNewOrder")
+AgencyRoutes.get("/getAllCompanyAllDetials",authenticateAndAuthorize(["Agency"]), getAllCompanyAllDetials);
+AgencyRoutes.post("/getSiteInformation",authenticateAndAuthorize(["Agency"]), getSiteInformation);
+
 module.exports = AgencyRoutes;

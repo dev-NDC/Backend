@@ -76,4 +76,10 @@ AdminRoutes.post("/uploadResult",authenticateAndAuthorize(["Admin"]),upload.sing
 AdminRoutes.post("/editResult",authenticateAndAuthorize(["Admin"]), editResult);
 AdminRoutes.post("/deleteResult",authenticateAndAuthorize(["Admin"]), deleteResult);
 
+
+// routes for create new order
+const {getAllCompanyAllDetials, getSiteInformation} = require("../../Controllers/Admin/CreateNewOrder")
+AdminRoutes.get("/getAllCompanyAllDetials",authenticateAndAuthorize(["Admin"]), getAllCompanyAllDetials);
+AdminRoutes.post("/getSiteInformation",authenticateAndAuthorize(["Admin"]), getSiteInformation);
+
 module.exports = AdminRoutes;
