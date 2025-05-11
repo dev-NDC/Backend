@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 
+const { createNewOrderSchema, driverSchema, packageAndOrderSchema } = require("./moreSchema");
+
 // Certificate schema
 const certificateSchema = new mongoose.Schema({
   description: String,
@@ -54,8 +56,6 @@ const randomSchema = new mongoose.Schema({
   }
 }, { _id: true });
 
-
-
 //document schema
 const documentSchema = new mongoose.Schema({
   description: String,
@@ -85,8 +85,13 @@ const invoiceSchema = new mongoose.Schema({
 
 // Result schema
 const resultSchema = new mongoose.Schema({
-  name: String,              // Driver Name
-  licenseNumber: String,     // License #
+  driverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+
+  name: String,              
+  licenseNumber: String, 
   date: Date,
   testType: String,
   status: { type: String, enum: ['Positive', 'Negative', 'Pending'], default: 'Pending' },
@@ -97,13 +102,13 @@ const resultSchema = new mongoose.Schema({
 
 // Membership schema
 const MembershipSchema = new mongoose.Schema({
-  price : Number,
-  planName : String,
+  price: Number,
+  planName: String,
   selectedPlan: Number,
   planStartDate: Date,
   planEndDate: Date,
-  orgId : String,
-  locationCode : String,
+  orgId: String,
+  locationCode: String,
   planStatus: { type: String, enum: ['Active', 'Inactive', 'Pending'], default: 'Pending' },
 }, { _id: true });
 
@@ -183,18 +188,9 @@ const userSchema = new mongoose.Schema({
   },
 
   // Drivers managed by this user
-  drivers: [{
-    name: String,
-    email: String,
-    licenseNumber: String,
-    dob: String,
-    phone: String,
-    creationDate: String,
-    createdBy: String,
-    deletedBy: String,
-    deletionDate: String,
-    isDeleted: { type: Boolean, default: false },
-  }],
+  drivers: [driverSchema],
+  order: [createNewOrderSchema],
+  packageAndOrder: packageAndOrderSchema,
 
   // Related documents
   results: [resultSchema],
