@@ -8,10 +8,10 @@ const password = process.env.PASSWORD;
 const getAllCompanyAllDetials = async (req, res) => {
     try {
         const companies = await User.find({ role: ["User"] });
-
         const formattedCompanies = companies.map((company) => ({
             _id: company._id,
             companyName: company.companyInfoData.companyName || "",
+            companyDetails : company.companyInfoData,
             packages: company.packageAndOrder?.package?.map(pkg => ({
                 _id: pkg._id,
                 packageCode: pkg.package_code || "",
@@ -77,7 +77,7 @@ const getSiteInformation = async (req, res) => {
             "package_code": package_code,
             "participant_address": formData.address,
             "participant_dob": formData.dob,
-            "participant_email": "junemassie626@gmail.com",
+            "participant_email": "vedprakash182001@gmail.com",
             "participant_first_name": formData.firstName,
             "participant_government_id": formData.ssn,
             "participant_last_name": formData.lastName,
@@ -250,8 +250,6 @@ const newDriverSubmitOrder = async (req, res) => {
 
         const resultToPush = {
             driverId: addedDriver._id,
-            name: `${newDriver.first_name} ${newDriver.last_name}`,
-            licenseNumber: req.body.formData.ssn,
             caseNumber: req.body.caseNumber,
             date: new Date(),
             testType: orderReasonName,

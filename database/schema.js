@@ -89,8 +89,6 @@ const resultSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
   },
 
-  name: String,              
-  licenseNumber: String,
   caseNumber : String,
   date: Date,
   testType: String,
