@@ -78,8 +78,10 @@ AdminRoutes.post("/deleteResult",authenticateAndAuthorize(["Admin"]), deleteResu
 
 
 // routes for create new order
-const {getAllCompanyAllDetials, getSiteInformation} = require("../../Controllers/Admin/CreateNewOrder")
+const {getAllCompanyAllDetials, getSiteInformation, newDriverSubmitOrder, handleNewPincode} = require("../../Controllers/Admin/CreateNewOrder")
 AdminRoutes.get("/getAllCompanyAllDetials",authenticateAndAuthorize(["Admin"]), getAllCompanyAllDetials);
 AdminRoutes.post("/getSiteInformation",authenticateAndAuthorize(["Admin"]), getSiteInformation);
+AdminRoutes.post("/handleNewPincode",authenticateAndAuthorize(["Admin"]), handleNewPincode);
+AdminRoutes.post("/newDriverSubmitOrder",authenticateAndAuthorize(["Admin"]), newDriverSubmitOrder);
 
 module.exports = AdminRoutes;

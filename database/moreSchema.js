@@ -28,6 +28,8 @@ const driverSchema = new mongoose.Schema({
     municipality: String,
     address: String,
     dob: String,
+    isActive : {type : Boolean, default: false},
+
     creationDate: String,
     createdBy: String,
     deletedBy: String,

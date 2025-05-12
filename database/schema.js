@@ -87,11 +87,11 @@ const invoiceSchema = new mongoose.Schema({
 const resultSchema = new mongoose.Schema({
   driverId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
   },
 
   name: String,              
-  licenseNumber: String, 
+  licenseNumber: String,
+  caseNumber : String,
   date: Date,
   testType: String,
   status: { type: String, enum: ['Positive', 'Negative', 'Pending'], default: 'Pending' },

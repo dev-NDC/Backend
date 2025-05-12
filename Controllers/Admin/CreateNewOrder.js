@@ -2,7 +2,8 @@ const User = require("../../database/schema")
 const axios = require('axios');
 const crypto = require("crypto");
 require('dotenv').config();
-
+const username = process.env.USERID;
+const password = process.env.PASSWORD;
 
 const getAllCompanyAllDetials = async (req, res) => {
     try {
@@ -86,8 +87,6 @@ const getSiteInformation = async (req, res) => {
             "participant_region": formData.state,
             "report message": ""
         }
-        const username = process.env.USERID;
-        const password = process.env.PASSWORD;
 
         const response = await axios.post(
             'https://demo.i3screen.net/api/scheduling/create',
@@ -106,7 +105,7 @@ const getSiteInformation = async (req, res) => {
         const success = response.data.success;
         const caseNumber = response.data.case_number;
         const scheduling_url = response.data.case_data.scheduling_url;
-        
+
         const payloadForSites = {
             "case_number": caseNumber,
             "search_radius": "100",
@@ -136,14 +135,153 @@ const getSiteInformation = async (req, res) => {
         res.status(200).json({
             errorStatus: 0,
             message: "All site information retrieved successfully",
-            data: sites
+            data: sites,
+            caseNumber,
         });
     } catch (error) {
-        console.error("Error in getSiteInformation:", error.response);
+        console.log(error.response)
         res.status(500).json({
             errorStatus: 1,
             message: "Server error, please try again later",
             error: error.response?.data || error.message,
+        });
+    }
+};
+
+const handleNewPincode = async (req, res) => {
+    console.log(req.body)
+    try {
+        const payloadForSites = {
+            "case_number": req.body.caseNumber,
+            "search_radius": "100",
+            "postal_code": req.body.data,
+            "address": "",
+            "municipality": "",
+            "province": "",
+            "country": "US",
+            "show_price": "0"
+        }
+        const siteResponse = await axios.post(
+            'https://demo.i3screen.net/api/scheduling/sitesv2',
+            payloadForSites,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                auth: {
+                    username,
+                    password
+                }
+            }
+        );
+        const siteData = siteResponse.data;
+        const siteSuccess = siteData.success;
+        let sites = siteData.sites;
+        res.status(200).json({
+            errorStatus: 0,
+            message: "All site information retrieved successfully",
+            data: sites,
+        });
+    } catch (error) {
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Server error, please try again later",
+            error: error.response?.data || error.message,
+        });
+    }
+}
+
+const newDriverSubmitOrder = async (req, res) => {
+    try {
+        const payloadForCreate = {
+            case_number: req.body.caseNumber,
+            collection_site_link_id: req.body.finlSelectedSite.collection_site_link_id,
+        };
+
+        const username = process.env.USERID;
+        const password = process.env.PASSWORD;
+
+        const response = await axios.post(
+            "https://demo.i3screen.net/api/scheduling/schedule",
+            payloadForCreate,
+            {
+                headers: { "Content-Type": "application/json" },
+                auth: { username, password }
+            }
+        );
+
+        const { companyId, orderReasonId } = req.body;
+
+        // Create new driver object
+        const newDriver = {
+            government_id: req.body.formData.ssn,
+            first_name: req.body.formData.firstName,
+            last_name: req.body.formData.lastName,
+            phone: req.body.formData.phone1,
+            email: "random",
+            postal_code: req.body.formData.zip,
+            region: req.body.formData.state,
+            municipality: req.body.formData.city,
+            address: req.body.formData.address,
+            dob: req.body.formData.dob,
+            isActive: false,
+            creationDate: new Date().toISOString(),
+            createdBy: req.body.createdBy || "Admin", // optional fallback
+        };
+
+        // Add the driver to the company
+        const user = await User.findById(companyId);
+        if (!user) {
+            return res.status(404).json({
+                errorStatus: 1,
+                message: "Company user not found",
+            });
+        }
+        user.drivers.push(newDriver);
+        await user.save();
+
+
+        // Get the new driver's _id (last element in array)
+        const addedDriver = user.drivers[user.drivers.length - 1];
+        const reasonEntry = user.packageAndOrder.order_reason.find(
+            (reason) => reason._id.toString() === orderReasonId
+        );
+        const orderReasonName = reasonEntry ? reasonEntry.order_reason_name : "Unknown";
+
+        const resultToPush = {
+            driverId: addedDriver._id,
+            name: `${newDriver.first_name} ${newDriver.last_name}`,
+            licenseNumber: req.body.formData.ssn,
+            caseNumber: req.body.caseNumber,
+            date: new Date(),
+            testType: orderReasonName,
+            status: "Pending",
+            file: null,
+            filename: "",
+            mimeType: ""
+        };
+
+        // Push the result into user's results array
+        user.results.push(resultToPush);
+        await user.save();
+        res.status(200).json({
+            errorStatus: 0,
+            message: "Case has been scheduled and driver added",
+            driverId: addedDriver._id,
+        });
+    } catch (error) {
+        const status = error.response?.status;
+        if (status === 422) {
+            return res.status(442).json({
+                errorStatus: 1,
+                message: "Case has already been scheduled"
+            });
+        }
+
+        console.error(error);
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Server error, please try again later",
         });
     }
 };
@@ -153,5 +291,7 @@ const getSiteInformation = async (req, res) => {
 
 module.exports = {
     getAllCompanyAllDetials,
-    getSiteInformation
+    getSiteInformation,
+    newDriverSubmitOrder,
+    handleNewPincode
 }
