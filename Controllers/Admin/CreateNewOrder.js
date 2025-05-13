@@ -7,20 +7,20 @@ const password = process.env.PASSWORD;
 
 const getAllCompanyAllDetials = async (req, res) => {
     try {
-        const companies = await User.find({ role: ["User"] });
+        const companies = await User.find({
+            role: ["User"],
+            "Membership.planStatus": "Active"
+        });
         const formattedCompanies = companies.map((company) => ({
             _id: company._id,
             companyName: company.companyInfoData.companyName || "",
-            companyDetails : company.companyInfoData,
-            packages: company.packageAndOrder?.package?.map(pkg => ({
+            companyDetails: company.companyInfoData,
+            packages: company.Membership?.package?.map(pkg => ({
                 _id: pkg._id,
-                packageCode: pkg.package_code || "",
                 packageName: pkg.package_name || "",
-                packageType: pkg.package_type || ""
             })) || [],
-            orderReasons: company.packageAndOrder?.order_reason?.map(reason => ({
+            orderReasons: company.Membership?.order_reason?.map(reason => ({
                 _id: reason._id,
-                orderReasonCode: reason.order_reason_code || "",
                 orderReasonName: reason.order_reason_name || ""
             })) || []
         }));
@@ -60,8 +60,8 @@ const getSiteInformation = async (req, res) => {
         const user = await User.findById(companyId);
         const orgId = user.Membership?.orgId;
         const location_code = user.Membership?.locationCode;
-        const package_code = user.packageAndOrder?.package?.find(pkg => pkg._id.toString() === packageId)?.package_code;
-        const order_reason = user.packageAndOrder?.order_reason?.find(reason => reason._id.toString() === orderReasonId)?.order_reason_code;
+        const package_code = packageId
+        const order_reason = orderReasonId
         let expiration_date_time = formData.orderExpires;
         let formattedExpiration = formatDateTime(expiration_date_time);
         const referenceNumber = generateOrderReference();
@@ -243,10 +243,8 @@ const newDriverSubmitOrder = async (req, res) => {
 
         // Get the new driver's _id (last element in array)
         const addedDriver = user.drivers[user.drivers.length - 1];
-        const reasonEntry = user.packageAndOrder.order_reason.find(
-            (reason) => reason._id.toString() === orderReasonId
-        );
-        const orderReasonName = reasonEntry ? reasonEntry.order_reason_name : "Unknown";
+
+        const orderReasonName = orderReasonId;
 
         const resultToPush = {
             driverId: addedDriver._id,

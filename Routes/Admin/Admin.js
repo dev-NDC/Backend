@@ -73,7 +73,7 @@ AdminRoutes.post("/deleteInvoice",authenticateAndAuthorize(["Admin"]), deleteInv
 // routes for results
 const {uploadResult, editResult, deleteResult} = require("../../Controllers/Admin/Result")
 AdminRoutes.post("/uploadResult",authenticateAndAuthorize(["Admin"]),upload.single("file"),uploadResult);
-AdminRoutes.post("/editResult",authenticateAndAuthorize(["Admin"]), editResult);
+AdminRoutes.post("/editResult", authenticateAndAuthorize(["Admin"]), upload.single("file"), editResult);
 AdminRoutes.post("/deleteResult",authenticateAndAuthorize(["Admin"]), deleteResult);
 
 

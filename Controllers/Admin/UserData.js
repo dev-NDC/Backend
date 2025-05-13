@@ -12,11 +12,11 @@ const getAllUserData = async (req, res) => {
             companyName: user.companyInfoData?.companyName || "N/A",
             companyEmail: user.companyInfoData?.companyEmail || "N/A",
             companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
-            activeDriversCount: user.drivers ? user.drivers.filter(driver => !driver.isDeleted).length : 0,
+            activeDriversCount: user.drivers ? user.drivers.filter(driver => !driver.isDeleted && driver.isActive === true).length : 0,
             status: user.Membership?.planStatus || "N/A",
             id: user._id
         }));
-        
+
         res.status(200).json({
             errorStatus: 0,
             message: "Data retrieved successfully",
@@ -159,8 +159,7 @@ const updatePaymentInformation = async (req, res) => {
 const updateMembershipInformation = async (req, res) => {
     try {
         const id = req.body.currentId;
-        const membershipData = req.body.data;
-
+        let membershipData = req.body.data;
         if (!id) {
             return res.status(400).json({
                 errorStatus: 1,
@@ -184,7 +183,6 @@ const updateMembershipInformation = async (req, res) => {
         res.status(200).json({
             success: true,
             message: "Membership information updated successfully",
-            Membership: updatedUser
         });
 
     } catch (error) {
@@ -196,4 +194,5 @@ const updateMembershipInformation = async (req, res) => {
     }
 };
 
-module.exports = { getAllUserData, getSingleUserDetails, updateCompanyInformation, updatePaymentInformation, updateMembershipInformation};
+
+module.exports = { getAllUserData, getSingleUserDetails, updateCompanyInformation, updatePaymentInformation, updateMembershipInformation };

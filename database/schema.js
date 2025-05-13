@@ -89,7 +89,7 @@ const resultSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
   },
 
-  caseNumber : String,
+  caseNumber: String,
   date: Date,
   testType: String,
   status: { type: String, enum: ['Positive', 'Negative', 'Pending'], default: 'Pending' },
@@ -98,7 +98,6 @@ const resultSchema = new mongoose.Schema({
   mimeType: String,
 }, { _id: true });
 
-// Membership schema
 const MembershipSchema = new mongoose.Schema({
   price: Number,
   planName: String,
@@ -107,8 +106,23 @@ const MembershipSchema = new mongoose.Schema({
   planEndDate: Date,
   orgId: String,
   locationCode: String,
-  planStatus: { type: String, enum: ['Active', 'Inactive', 'Pending'], default: 'Pending' },
+  planStatus: {
+    type: String,
+    enum: ['Active', 'Inactive', 'Pending'],
+    default: 'Pending',
+  },
+
+  // Add this for storing selected packages
+  package: [{
+    package_name: String,
+  }],
+
+  // Add this for storing selected order reasons
+  order_reason: [{
+    order_reason_name: String,
+  }],
 }, { _id: true });
+
 
 // Main User schema
 const userSchema = new mongoose.Schema({

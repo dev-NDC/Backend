@@ -4,15 +4,10 @@ const jwt = require("jsonwebtoken");
 const transporter = require("./Transpoter")
 const { createCustomPDF } = require("./GenerateSignUpPDF")
 const { getOrgId, getLocationCode } = require("./getLocationCodeAndOrgID");
-const { getPackage, getOrderReason } = require("./PackageAndReason")
 
 
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
 const User = require("../../database/schema")
-const fs = require("fs");
-const path = require("path");
-const PDFDocument = require("pdfkit");
-
 
 
 const login = async (req, res) => {
@@ -78,12 +73,8 @@ const signup = async (req, res) => {
 
         const orgId = await getOrgId(req.body);
         const locationCode = await getLocationCode(req.body);
-        const package = await getPackage(req.body);
-        const orderReason = await getOrderReason(req.body);
-        
         newUser.Membership.orgId = orgId;
         newUser.Membership.locationCode = locationCode;
-        newUser.packageAndOrder = { package, order_reason: orderReason };
         await newUser.save();
         createCustomPDF(req.body);
         res.status(200).json({

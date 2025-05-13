@@ -3,22 +3,20 @@ const User = require("../../database/schema");
 // Upload Result
 const uploadResult = async (req, res) => {
     try {
-        const { currentId, name, licenseNumber, date, testType, status } = req.body;
+        const { currentId, driverId, caseNumber, date, testType, status } = req.body;
         const file = req.file;
-
         if (!file) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "No file uploaded",
             });
         }
-
         const result = {
-            name,
-            licenseNumber,
+            driverId : driverId,
             date: new Date(date),
             testType,
             status,
+            caseNumber,
             file: file.buffer,
             filename: file.originalname,
             mimeType: file.mimetype,
@@ -28,10 +26,12 @@ const uploadResult = async (req, res) => {
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
         }
-
         user.results.push(result);
+        const driver = user.drivers.id(result.driverId);
+        if (driver) {
+            driver.isActive = result.status === "Negative";
+        }
         await user.save();
-
         res.status(200).json({
             errorStatus: 0,
             message: "Result uploaded successfully",
@@ -49,6 +49,8 @@ const uploadResult = async (req, res) => {
 const editResult = async (req, res) => {
     try {
         const { currentId, resultId, updatedData } = req.body;
+        const parsedUpdatedData = JSON.parse(updatedData);
+        const file = req.file;
 
         const user = await User.findById(currentId);
         if (!user) {
@@ -60,11 +62,21 @@ const editResult = async (req, res) => {
             return res.status(404).json({ errorStatus: 1, message: "Result not found" });
         }
 
-        result.name = updatedData.name || result.name;
-        result.licenseNumber = updatedData.licenseNumber || result.licenseNumber;
-        result.date = new Date(updatedData.date) || result.date;
-        result.testType = updatedData.testType || result.testType;
-        result.status = updatedData.status || result.status;
+        // Update result fields
+        result.status = parsedUpdatedData?.status || result.status;
+
+        // Update file if a new one is uploaded
+        if (file) {
+            result.file = file.buffer;
+            result.filename = file.originalname;
+            result.mimeType = file.mimetype;
+        }
+
+        // Update driver's isActive status based on result status
+        const driver = user.drivers.id(result.driverId);
+        if (driver) {
+            driver.isActive = result.status === "Negative";
+        }
 
         await user.save();
 
@@ -73,6 +85,7 @@ const editResult = async (req, res) => {
             message: "Result updated successfully",
         });
     } catch (error) {
+        console.log(error);
         res.status(500).json({
             errorStatus: 1,
             message: "Server error while editing result",
@@ -80,6 +93,9 @@ const editResult = async (req, res) => {
         });
     }
 };
+
+
+
 
 // Delete Result
 const deleteResult = async (req, res) => {

@@ -40,12 +40,9 @@ const driverSchema = new mongoose.Schema({
 // Package and OrderSchema
 const packageAndOrderSchema = new mongoose.Schema({
     package: [{
-        package_code: String,
         package_name: String,
-        package_type: String,
     }],
     order_reason: [{
-        order_reason_code: String,
         order_reason_name: String,
     }],
 }, { _id: true });
