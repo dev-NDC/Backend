@@ -2,9 +2,9 @@ const User = require("../../database/schema")
 
 const AddDriver = async (req, res) => {
     try {
-        const {name, email, license, dob, phone } = req.body.driver;
+        const {firstName, lastName, email, license, dob, phone } = req.body.driver;
         const userId = req.body.currentId;
-        if (!userId || userId == null || !name || !email || !license || !dob || !phone) {
+        if (!userId || userId == null || !firstName || !lastName || !email || !license || !dob || !phone) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "Please provide all required fields"
@@ -21,12 +21,14 @@ const AddDriver = async (req, res) => {
 
         // Create new driver object
         const newDriver = {
-            name,
+            first_name : firstName,
+            last_name : lastName,
             email,
-            licenseNumber: license,
+            government_id: license,
             dob,
             phone,
             creationDate: new Date().toISOString(), // Current date
+            isActive : true,
             createdBy: "Agency", // Set createdBy to Customer
             deletionDate: null, // Leave empty
             isDeleted: false

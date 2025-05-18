@@ -24,7 +24,7 @@ const getAllUserData = async (req, res) => {
             companyName: user.companyInfoData?.companyName || "N/A",
             companyEmail: user.companyInfoData?.companyEmail || "N/A",
             companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
-            activeDriversCount: user.drivers ? user.drivers.filter(driver => !driver.isDeleted).length : 0,
+            activeDriversCount: user.drivers ? user.drivers.filter(driver => !driver.isDeleted && driver.isActive === true).length : 0,
             status: user.Membership?.planStatus || "N/A",
             id: user._id
         }));
@@ -47,7 +47,7 @@ const getAllUserData = async (req, res) => {
 
 const getSingleUserDetails = async (req, res) => {
     try {
-        const userId = req.body.id; // Extract user ID from request body
+        const userId = req.body.id;
 
         if (!userId) {
             return res.status(400).json({
@@ -56,8 +56,8 @@ const getSingleUserDetails = async (req, res) => {
             });
         }
 
-        // Fetch user details from the database
-        const user = await User.findById(userId).select("-contactInfoData.password");;
+        // Fetch user details
+        const user = await User.findById(userId).select("-contactInfoData.password");
 
         if (!user) {
             return res.status(404).json({
@@ -66,10 +66,24 @@ const getSingleUserDetails = async (req, res) => {
             });
         }
 
+        // Clone the user object to avoid modifying the Mongoose document
+        const userObj = user.toObject();
+
+        // Enrich each result with driver name and government_id
+        userObj.results = userObj.results.map(result => {
+            const driver = userObj.drivers.find(d => d._id.toString() === result.driverId?.toString());
+
+            return {
+                ...result,
+                driverName: driver ? `${driver.first_name} ${driver.last_name}` : "Unknown",
+                licenseNumber: driver ? driver.government_id : "N/A",
+            };
+        });
+
         res.status(200).json({
             errorStatus: 0,
             message: "Data retrieved successfully",
-            data: user, // Send the whole user object
+            data: userObj,
         });
 
     } catch (error) {
@@ -84,7 +98,7 @@ const getSingleUserDetails = async (req, res) => {
 const updateCompanyInformation = async (req, res) => {
     try {
         const id = req.body.currentId;
-        const companyInfoData  = req.body.data;
+        const companyInfoData = req.body.data;
 
         if (!id) {
             return res.status(400).json({
@@ -120,7 +134,7 @@ const updateCompanyInformation = async (req, res) => {
 const updatePaymentInformation = async (req, res) => {
     try {
         const id = req.body.currentId;
-        const paymentData  = req.body.data;
+        const paymentData = req.body.data;
 
         if (!id) {
             return res.status(400).json({
@@ -153,4 +167,4 @@ const updatePaymentInformation = async (req, res) => {
     }
 }
 
-module.exports = { getAllUserData,getSingleUserDetails,updateCompanyInformation,updatePaymentInformation };
+module.exports = { getAllUserData, getSingleUserDetails, updateCompanyInformation, updatePaymentInformation };

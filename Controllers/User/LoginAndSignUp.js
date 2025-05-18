@@ -72,7 +72,10 @@ const signup = async (req, res) => {
         const newUser = new User(req.body);
 
         const orgId = await getOrgId(req.body);
-        const locationCode = await getLocationCode(req.body);
+        let locationCode = null;
+        if (orgId !== null) {
+            locationCode = await getLocationCode(req.body, orgId);
+        }
         newUser.Membership.orgId = orgId;
         newUser.Membership.locationCode = locationCode;
         await newUser.save();

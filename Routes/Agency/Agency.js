@@ -42,8 +42,10 @@ AgencyRoutes.post("/editResult",authenticateAndAuthorize(["Agency"]), editResult
 AgencyRoutes.post("/deleteResult",authenticateAndAuthorize(["Agency"]), deleteResult);
 
 // routes for create new order
-const {getAllCompanyAllDetials, getSiteInformation} = require("../../Controllers/Agency/CreateNewOrder")
+const {getAllCompanyAllDetials, getSiteInformation, newDriverSubmitOrder, handleNewPincode} = require("../../Controllers/Agency/CreateNewOrder")
 AgencyRoutes.get("/getAllCompanyAllDetials",authenticateAndAuthorize(["Agency"]), getAllCompanyAllDetials);
 AgencyRoutes.post("/getSiteInformation",authenticateAndAuthorize(["Agency"]), getSiteInformation);
+AgencyRoutes.post("/handleNewPincode",authenticateAndAuthorize(["Agency"]), handleNewPincode);
+AgencyRoutes.post("/newDriverSubmitOrder",authenticateAndAuthorize(["Agency"]), newDriverSubmitOrder);
 
 module.exports = AgencyRoutes;

@@ -8,10 +8,10 @@ const fetchRandomDriver = async (req, res) => {
 
         const responseData = companies.map(company => {
             const drivers = company.drivers
-                ?.filter(driver => !driver.isDeleted)
+                ?.filter(driver => !driver.isDeleted && driver.isActive  === true)
                 .map(driver => ({
                     driverId: driver._id,
-                    driverName: driver.name,
+                    driverName: `${driver?.first_name} ${driver?.last_name}`,
                 })) || [];
 
             return {
