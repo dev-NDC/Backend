@@ -56,7 +56,7 @@ const authenticateAndAuthorize = (requiredRoles) => {
         } catch (error) {
             res.status(401).json({
                 errorStatus: 1,
-                message: "Invalid or expired token",
+                message: "An unexpected error occurred. Please try again later.",
                 error
             });
         }

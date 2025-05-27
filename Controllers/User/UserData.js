@@ -21,14 +21,13 @@ const userData = async (req, res) => {
 
         res.status(200).json({
             errorStatus: 0,
-            message: "Everything is fine",
+            message: "UserData sent successfully",
             data:userObj
         })
     } catch (error) {
         res.status(500).json({
             errorStatus: 1,
-            error,
-            message: "server error, please try again later"
+            message: "An unexpected error occurred. Please try again later."
         })
     }
 }
@@ -54,16 +53,13 @@ const updateCompanyInformation = async (req, res) => {
                 message: "User not found"
             });
         }
-
         res.status(200).json({
             success: true,
             message: "Company information updated successfully",
-            companyInfoData: updatedUser.companyInfoData
         });
     } catch (error) {
         res.status(500).json({
             errorStatus: 1,
-            error,
             message: "server error, please try again later"
         })
     }
@@ -97,7 +93,6 @@ const updatePayment = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             errorStatus: 1,
-            error,
             message: "server error, please try again later"
         })
     }

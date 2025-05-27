@@ -71,10 +71,11 @@ AdminRoutes.post("/editInvoice",authenticateAndAuthorize(["Admin"]), editInvoice
 AdminRoutes.post("/deleteInvoice",authenticateAndAuthorize(["Admin"]), deleteInvoice);
 
 // routes for results
-const {uploadResult, editResult, deleteResult} = require("../../Controllers/Admin/Result")
+const {uploadResult, editResult, deleteResult, getAllResult} = require("../../Controllers/Admin/Result")
 AdminRoutes.post("/uploadResult",authenticateAndAuthorize(["Admin"]),upload.single("file"),uploadResult);
 AdminRoutes.post("/editResult", authenticateAndAuthorize(["Admin"]), upload.single("file"), editResult);
 AdminRoutes.post("/deleteResult",authenticateAndAuthorize(["Admin"]), deleteResult);
+AdminRoutes.get("/getAllResult",authenticateAndAuthorize(["Admin"]), getAllResult);
 
 
 // routes for create new order

@@ -5,9 +5,13 @@ const {userData, updateCompanyInformation,updatePayment} = require("../../Contro
 const {authenticateAndAuthorize} = require("../../Middleware/authenticateAndAuthorize")
 
 
+// routes for user data
+const { updatePaymentValidator, updateCompanyInformationValidator } = require("../../Validators/User/UserDataValidation");
+const validate = require("../../Middleware/validate");
+
 userDataRoutes.get("/getdata", authenticateAndAuthorize(["User"]), userData);
-userDataRoutes.post("/updateCompanyInformation", authenticateAndAuthorize(["User"]), updateCompanyInformation);
-userDataRoutes.post("/updatePayment", authenticateAndAuthorize(["User"]), updatePayment);
+userDataRoutes.post("/updateCompanyInformation", authenticateAndAuthorize(["User"]),updateCompanyInformationValidator, validate, updateCompanyInformation);
+userDataRoutes.post("/updatePayment", authenticateAndAuthorize(["User"]),updatePaymentValidator, validate, updatePayment);
 
 
 // routes for create new order

@@ -13,13 +13,6 @@ const User = require("../../database/schema")
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(400).json({
-                errorStatus: 1,
-                message: "Email and password are required."
-            });
-        }
-
         const user = await User.findOne({ "contactInfoData.email": email });
         if (!user) {
             return res.status(401).json({
@@ -54,7 +47,7 @@ const login = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             errorStatus: 1,
-            message: 'Server error, please try again later'
+            message: "An unexpected error occurred. Please try again later.",
         });
     }
 };
@@ -82,14 +75,12 @@ const signup = async (req, res) => {
         createCustomPDF(req.body);
         res.status(200).json({
             errorStatus: 0,
-            message: "Account created Successfully"
+            message: "Account created Successfully!"
         })
     } catch (error) {
-        console.log(error)
         res.status(500).json({
             errorStatus: 1,
-            error,
-            message: "Failed to Signup"
+            message: "An unexpected error occurred. Please try again later."
         })
     }
 
@@ -102,9 +93,9 @@ const forgotPassword = async (req, res) => {
         const user = await User.findOne({ "contactInfoData.email": email });
 
         if (!user) {
-            return res.status(404).json({
-                errorStatus: 1,
-                message: "User not found",
+            return res.status(200).json({
+                errorStatus: 0,
+                message: "If an account with that email exists, a password reset link has been sent.",
             });
         }
 
@@ -134,13 +125,12 @@ const forgotPassword = async (req, res) => {
         await user.save();
         res.status(200).json({
             errorStatus: 0,
-            message: "Password reset link sent to your email",
+            message: "If an account with that email exists, a password reset link has been sent.",
         });
     } catch (error) {
         res.status(500).json({
             errorStatus: 1,
-            message: "Failed to send password reset link",
-            error: error.message,
+            message: "An unexpected error occurred. Please try again later.",
         });
     }
 };
@@ -168,7 +158,7 @@ const resetPassword = async (req, res) => {
         ) {
             return res.status(400).json({
                 errorStatus: 1,
-                message: "Invalid or expired token",
+                message: "Invalid or expired password reset token",
             });
         }
 
@@ -189,8 +179,7 @@ const resetPassword = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             errorStatus: 1,
-            message: "Failed to reset password",
-            error: error.message,
+            message: "An unexpected error occurred. Please try again later.",
         });
     }
 };

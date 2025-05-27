@@ -175,6 +175,7 @@ const userSchema = new mongoose.Schema({
     city: String,
     state: String,
     zip: String,
+    driverCount:String,
   },
 
   // Payment info

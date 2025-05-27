@@ -63,8 +63,7 @@ const Verification = () => {
         } catch (error) {
             res.status(500).json({
                 errorStatus: 1,
-                message: "Internal Server Error",
-                error: error.message
+                message: "An unexpected error occurred. Please try again later.",
             });
         }
     };

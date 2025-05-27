@@ -7,7 +7,7 @@ const verifyUser = async(req,res)=>{
     } catch (error) {
         res.status(500).json({
             errorStatus:1,
-            message:'server error, please try again later'
+            message:'An unexpected error occurred. Please try again later.'
         })
     }
 }
