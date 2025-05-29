@@ -11,7 +11,6 @@ const sendWSDLFile = async (req, res) => {
         })
     }
 }
-
 const I3screenListner = async (req, res) => {
     const xml = req.body;
     if (!xml || typeof xml !== 'string') {
@@ -29,14 +28,19 @@ const I3screenListner = async (req, res) => {
 
         const user = resultBody?.userid;
         const pass = resultBody?.password;
-        const data = resultBody?.data;
 
-        if (!data) {
+        // 🔄 BONUS: Support both CDATA and direct XML
+        const rawData = resultBody?.data?._ || resultBody?.data;
+        if (!rawData) {
+            console.error('[!] Missing <data> element:', JSON.stringify(resultBody));
             return res.status(400).send('<error>Missing data element</error>');
         }
 
-        // No need to re-parse: data is already an object
-        const report = data.BackgroundReports;
+        const parsedData = typeof rawData === 'string'
+            ? await xml2js.parseStringPromise(rawData, { explicitArray: false })
+            : rawData;
+
+        const report = parsedData.BackgroundReports;
         const caseId = report?.ProviderReferenceId?.IdValue || 'UNKNOWN';
         const screening = report?.BackgroundReportPackage?.Screenings?.Screening;
         const status = screening?.ScreeningStatus?.OrderStatus || 'UNKNOWN';
@@ -67,6 +71,5 @@ const I3screenListner = async (req, res) => {
         res.status(500).send(`<error>${err.message}</error>`);
     }
 };
-
 
 module.exports = { sendWSDLFile, I3screenListner };
