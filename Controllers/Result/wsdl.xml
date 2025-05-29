@@ -4,38 +4,17 @@
              xmlns:tns="http://i3logix.com"
              xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
              xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-             xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
              xmlns="http://schemas.xmlsoap.org/wsdl/">
 
-  <types>
-    <xsd:schema targetNamespace="http://i3logix.com">
-      <xsd:element name="result">
-        <xsd:complexType>
-          <xsd:sequence>
-            <xsd:element name="userid" type="xsd:string"/>
-            <xsd:element name="password" type="xsd:string"/>
-            <xsd:element name="data" type="xsd:string"/>
-          </xsd:sequence>
-        </xsd:complexType>
-      </xsd:element>
-
-      <xsd:element name="resultResponse">
-        <xsd:complexType>
-          <xsd:sequence>
-            <xsd:element name="status" type="xsd:string"/>
-            <xsd:element name="message" type="xsd:string"/>
-          </xsd:sequence>
-        </xsd:complexType>
-      </xsd:element>
-    </xsd:schema>
-  </types>
-
   <message name="ResultRequest">
-    <part name="parameters" element="tns:result"/>
+    <part name="userid" type="xsd:string"/>
+    <part name="password" type="xsd:string"/>
+    <part name="data" type="xsd:string"/>
   </message>
 
   <message name="ResultResponse">
-    <part name="parameters" element="tns:resultResponse"/>
+    <part name="status" type="xsd:string"/>
+    <part name="message" type="xsd:string"/>
   </message>
 
   <portType name="I3ScreenPortType">
