@@ -1,5 +1,6 @@
 const { body } = require("express-validator");
 
+
 exports.loginValidator = [
     body("email")
         .notEmpty().withMessage("Email is required")
@@ -7,6 +8,7 @@ exports.loginValidator = [
     body("password")
         .notEmpty().withMessage("Password is required")
 ];
+
 
 exports.signupValidator = [
     // Contact Info

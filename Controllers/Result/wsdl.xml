@@ -1,40 +1,66 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<definitions name="i3screenListener"
-targetNamespace="http://i3logix.com"
-xmlns:tns="http://i3logix.com"
-xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
-xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-xmlns="http://schemas.xmlsoap.org/wsdl/">
-<message name="ResultRequest">
-<part name="parameters" element="tns:result"/>
-</message>
-<message name="ResultResponse">
-<part name="parameters" element="tns:resultResponse"/>
-</message>
-<portType name="i3screenPortType">
-<operation name="result">
-<input message="tns:ResultRequest"/>
-<output message="tns:ResultResponse"/>
-</operation>
-</portType>
-<binding name="i3screenBinding" type="tns:i3screenPortType">
-<soap:binding style="document"
-transport="http://schemas.xmlsoap.org/soap/http"/>
-<operation name="result">
-<soap:operation soapAction="http://i3logix.com/result"/>
-<input>
-<soap:body use="literal"/>
-</input>
-<output>
-<soap:body use="literal"/>
-</output>
-</operation>
-</binding>
-<service name="i3screenService">
-<port name="i3screenPort" binding="tns:i3screenBinding">
-<soap:address
-location="https://backend-pi8m.onrender.com/api/i3Screen/I3screenListner"
-/>
-</port>
-</service>
+<definitions name="I3ScreenService"
+             targetNamespace="http://i3logix.com"
+             xmlns:tns="http://i3logix.com"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+  <types>
+    <xsd:schema targetNamespace="http://i3logix.com">
+      <xsd:element name="result">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="userid" type="xsd:string"/>
+            <xsd:element name="password" type="xsd:string"/>
+            <xsd:element name="data" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <xsd:element name="resultResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="status" type="xsd:string"/>
+            <xsd:element name="message" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:schema>
+  </types>
+
+  <message name="ResultRequest">
+    <part name="parameters" element="tns:result"/>
+  </message>
+
+  <message name="ResultResponse">
+    <part name="parameters" element="tns:resultResponse"/>
+  </message>
+
+  <portType name="I3ScreenPortType">
+    <operation name="result">
+      <input message="tns:ResultRequest"/>
+      <output message="tns:ResultResponse"/>
+    </operation>
+  </portType>
+
+  <binding name="I3ScreenBinding" type="tns:I3ScreenPortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="result">
+      <soap:operation soapAction="http://i3logix.com/result"/>
+      <input>
+        <soap:body use="literal"/>
+      </input>
+      <output>
+        <soap:body use="literal"/>
+      </output>
+    </operation>
+  </binding>
+
+  <service name="I3ScreenService">
+    <port name="I3ScreenPort" binding="tns:I3ScreenBinding">
+      <soap:address location="https://backend-pi8m.onrender.com/api/i3Screen/I3screenListner"/>
+    </port>
+  </service>
 </definitions>
