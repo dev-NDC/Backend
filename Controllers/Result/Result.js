@@ -1,6 +1,6 @@
 const path = require("path")
 const xml2js = require('xml2js');
-
+const User = require("../../database/schema")
 const sendWSDLFile = async (req, res) => {
     try {
         res.status(200).sendFile(path.join(__dirname, "wsdl.xml"));
@@ -46,11 +46,31 @@ const I3screenListner = async (req, res) => {
         const status = screening?.ScreeningStatus?.OrderStatus || 'UNKNOWN';
         const adjudication = screening?.ScreeningStatus?.AdditionalItems?.Text || 'UNKNOWN';
 
-        console.log(`[✔] i3screen Result Received`);
-        console.log(`- User: ${user}`);
-        console.log(`- Case ID: ${caseId}`);
-        console.log(`- Status: ${status}`);
-        console.log(`- Result: ${adjudication}`);
+        const updated = await User.updateOne(
+            { "results.caseNumber": caseId },
+            {
+                $set: {
+                    "results.$.status": status,
+                }
+            }
+        );
+
+        if (updated.modifiedCount === 0) {
+            console.warn(`[!] No result found for case ID: ${caseId}`);
+
+            const errorSoapResponse = `
+                <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
+                    <SOAP-ENV:Body>
+                        <ns1:resultResponse xmlns:ns1="http://i3logix.com">
+                            <status>Error</status>
+                            <message>No matching result found for case ID: ${caseId}</message>
+                        </ns1:resultResponse>
+                    </SOAP-ENV:Body>
+                </SOAP-ENV:Envelope>
+            `;
+            res.set('Content-Type', 'text/xml');
+            return res.status(404).send(errorSoapResponse);
+        }
 
         const soapResponse = `
         <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">

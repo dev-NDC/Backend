@@ -92,7 +92,7 @@ const resultSchema = new mongoose.Schema({
   caseNumber: String,
   date: Date,
   testType: String,
-  status: { type: String, enum: ['Positive', 'Negative', 'Pending'], default: 'Pending' },
+  status: { type: String},
   file: Buffer,
   filename: String,
   mimeType: String,
