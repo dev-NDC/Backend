@@ -11,25 +11,25 @@ const sendWSDLFile = async (req, res) => {
         })
     }
 }
+
 const I3screenListner = async (req, res) => {
-    const xml = req.body;
+    const xml = req.body?.toString?.();
     if (!xml || typeof xml !== 'string') {
-        return res.status(400).send('Missing or invalid XML payload');
+        return res.status(400).send('<error>Missing or invalid XML payload</error>');
     }
 
     try {
-        const result = await xml2js.parseStringPromise(xml, {
-            explicitArray: false
-        });
+        const result = await xml2js.parseStringPromise(xml, { explicitArray: false });
 
         const envelope = result['SOAP-ENV:Envelope'] || result['soapenv:Envelope'];
         const body = envelope['SOAP-ENV:Body'] || envelope['soapenv:Body'];
-        const resultBody = body['ns1:result'] || body['i3:result'] || body['result'];
+
+        // ✅ Accept either wrapper format
+        const resultBody = body['ns1:result'] || body['i3:result'] || body['result'] || body;
 
         const user = resultBody?.userid;
         const pass = resultBody?.password;
 
-        // 🔄 BONUS: Support both CDATA and direct XML
         const rawData = resultBody?.data?._ || resultBody?.data;
         if (!rawData) {
             console.error('[!] Missing <data> element:', JSON.stringify(resultBody));
