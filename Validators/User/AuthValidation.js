@@ -18,7 +18,6 @@ exports.signupValidator = [
         .notEmpty().withMessage("Last name is required"),
     body("contactInfoData.phone")
         .notEmpty().withMessage("Phone is required")
-        .isMobilePhone("en-IN").withMessage("Invalid phone number format")
         .matches(/^\d{10}$/).withMessage("Phone must be exactly 10 digits"),
     body("contactInfoData.email")
         .notEmpty().withMessage("Email is required")
@@ -35,7 +34,6 @@ exports.signupValidator = [
         .isNumeric().withMessage("USDOT must be a number"),
     body("companyInfoData.contactNumber")
         .notEmpty().withMessage("Phone is required")
-        .isMobilePhone("en-IN").withMessage("Invalid phone number format")
         .matches(/^\d{10}$/).withMessage("Phone must be exactly 10 digits"),
     body("companyInfoData.companyEmail")
         .notEmpty().withMessage("Company email is required")
@@ -56,9 +54,6 @@ exports.signupValidator = [
     body("companyInfoData.zip")
         .notEmpty().withMessage("ZIP code is required")
         .isNumeric().withMessage("ZIP code must be a number"),
-    body("companyInfoData.driverCount")
-        .notEmpty().withMessage("Driver count is required")
-        .isNumeric().withMessage("Driver count must be a number"),
 
     // Payment Info
     body("paymentData.creditCardNumber")
