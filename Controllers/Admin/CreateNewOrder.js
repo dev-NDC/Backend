@@ -61,6 +61,7 @@ const getSiteInformation = async (req, res) => {
         const orgId = user.Membership?.orgId;
         const location_code = user.Membership?.locationCode;
         const package_code = packageId
+        console.log(package_code)
         const order_reason = orderReasonId
         let expiration_date_time = formData.orderExpires;
         let formattedExpiration = formatDateTime(expiration_date_time);
