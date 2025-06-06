@@ -1,5 +1,6 @@
 const path = require("path")
 const xml2js = require('xml2js');
+const fs = require('fs');
 const User = require("../../database/schema")
 const sendWSDLFile = async (req, res) => {
     try {
@@ -24,7 +25,6 @@ const I3screenListner = async (req, res) => {
         const envelope = result['SOAP-ENV:Envelope'] || result['soapenv:Envelope'];
         const body = envelope['SOAP-ENV:Body'] || envelope['soapenv:Body'];
 
-        // ✅ Accept either wrapper format
         const resultBody = body['ns1:result'] || body['i3:result'] || body['result'] || body;
 
         const user = resultBody?.userid;
@@ -41,25 +41,34 @@ const I3screenListner = async (req, res) => {
             : rawData;
 
         const report = parsedData.BackgroundReports;
-        const caseId = report?.ProviderReferenceId?.IdValue || 'UNKNOWN';
-        console.log(caseId);
-        
+        const caseId = report?.ProviderReferenceId?.IdValue?.toString();
         const screening = report?.BackgroundReportPackage?.Screenings?.Screening;
         const status = screening?.ScreeningStatus?.OrderStatus || 'UNKNOWN';
-        const adjudication = screening?.ScreeningStatus?.AdditionalItems?.Text || 'UNKNOWN';
+
+        // 🟡 Extract PDF
+        const imageNode = report?.BackgroundReportPackage?.SupportingDocumentation?.Documentation?.Image;
+        const pdfBase64 = imageNode?._ || imageNode;
+        const filename = imageNode?.$.fileName || 'report.pdf';
+        const mimeType = imageNode?.$.mediaType === 'pdf' ? 'application/pdf' : 'application/octet-stream';
+        const pdfBuffer = pdfBase64 ? Buffer.from(pdfBase64, 'base64') : null;
+
+        // 🔄 MongoDB Update
+        const updateObj = {
+            "results.$[elem].status": status
+        };
+        if (pdfBuffer) {
+            updateObj["results.$[elem].file"] = pdfBuffer;
+            updateObj["results.$[elem].filename"] = filename;
+            updateObj["results.$[elem].mimeType"] = mimeType;
+        }
 
         const updated = await User.updateOne(
             { "results.caseNumber": caseId },
-            {
-                $set: {
-                    "results.$.status": status,
-                }
-            }
+            { $set: updateObj },
+            { arrayFilters: [{ "elem.caseNumber": caseId }] }
         );
 
         if (updated.modifiedCount === 0) {
-            console.warn(`[!] No result found for case ID: ${caseId}`);
-
             const errorSoapResponse = `
                 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
                     <SOAP-ENV:Body>
@@ -79,7 +88,7 @@ const I3screenListner = async (req, res) => {
             <SOAP-ENV:Body>
                 <ns1:resultResponse xmlns:ns1="http://i3logix.com">
                     <status>Success</status>
-                    <message>Result parsed</message>
+                    <message>Result parsed, PDF saved, and DB updated</message>
                 </ns1:resultResponse>
             </SOAP-ENV:Body>
         </SOAP-ENV:Envelope>
@@ -93,5 +102,6 @@ const I3screenListner = async (req, res) => {
         res.status(500).send(`<error>${err.message}</error>`);
     }
 };
+
 
 module.exports = { sendWSDLFile, I3screenListner };
