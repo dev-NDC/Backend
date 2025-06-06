@@ -1,8 +1,8 @@
 const User = require("../../database/schema")
-const transporter = require("./Transpoter")
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 
+const {newAdmin} = require("./EmailTempletes/NewAdmin")
 
 const getAllAdminData = async (req, res) => {
     try {
@@ -138,7 +138,7 @@ const createNewAdmin = async (req, res) => {
         const resetTokenExpiry = Date.now() + 3600000;  // Token expires in 1 hour
 
         // Create new admin user
-        const newAdmin = new User({
+        const tempNewAdmin = new User({
             role: ["Admin"],
             contactInfoData: {
                 firstName,
@@ -153,32 +153,20 @@ const createNewAdmin = async (req, res) => {
             resetToken,  // Save reset token
             resetTokenExpiry,  // Save reset token expiry
         });
-
-        // Generate reset link
-        const resetLink = `http://localhost:3000/resetPassword?token=${resetToken}&email=${email}`;
-
-        // Send reset email
-        await transporter.sendMail({
-            from: process.env.SMTP_USER,
-            to: email,
-            subject: "Set Your Password",
-            html: `
-                <h3>Welcome to the Admin Portal</h3>
-                <p>You have been registered as an admin user.</p>
-                <p>Please set your password using the link below:</p>
-                <a href="${resetLink}">${resetLink}</a>
-                <p>This link will expire in 1 hour.</p>
-            `,
-        });
+        
+        const Name = `${firstName} ${lastName}`
+        //send email
+        await newAdmin({ email, resetToken, Name });
 
         // Save new admin to the database
-        await newAdmin.save();
+        await tempNewAdmin.save();
 
         res.status(201).json({
             errorStatus: 0,
             message: "Admin created and reset email sent.",
         });
     } catch (error) {
+        console.log(error)
         res.status(500).json({
             errorStatus: 1,
             message: "Server error while creating admin",

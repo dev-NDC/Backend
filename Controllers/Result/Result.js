@@ -42,6 +42,8 @@ const I3screenListner = async (req, res) => {
 
         const report = parsedData.BackgroundReports;
         const caseId = report?.ProviderReferenceId?.IdValue || 'UNKNOWN';
+        console.log(caseId);
+        
         const screening = report?.BackgroundReportPackage?.Screenings?.Screening;
         const status = screening?.ScreeningStatus?.OrderStatus || 'UNKNOWN';
         const adjudication = screening?.ScreeningStatus?.AdditionalItems?.Text || 'UNKNOWN';

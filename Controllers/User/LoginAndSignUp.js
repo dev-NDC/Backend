@@ -98,7 +98,8 @@ const forgotPassword = async (req, res) => {
                 message: "If an account with that email exists, a password reset link has been sent.",
             });
         }
-
+        const Name = `${user.contactInfoData.firstName} ${user.contactInfoData.lastName}`
+        const CompanyName = `${user.companyInfoData.companyName}`
         // Generate reset token and expiry time (1 hour expiry)
         const resetToken = crypto.randomBytes(20).toString("hex");
         const resetTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour expiry
@@ -107,7 +108,7 @@ const forgotPassword = async (req, res) => {
         user.resetToken = resetToken;
         user.resetTokenExpiry = resetTokenExpiry;
 
-        await sendResetEmail({ email, resetToken });
+        await sendResetEmail({ email, resetToken, Name, CompanyName });
 
 
         await user.save();
