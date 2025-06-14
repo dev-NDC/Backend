@@ -431,7 +431,7 @@ const createCustomPDF = async (userData) => {
 
     stream.on("finish", async () => {
         // Send the PDF via email once it's created
-        await sendEmailWithPDF(outputPath, email);
+        await sendEmailWithPDF(outputPath, email, userData.companyInfoData.companyName);
     });
 };
 
@@ -439,17 +439,17 @@ const createCustomPDF = async (userData) => {
 
 
 // Function to send email with the PDF attachment
-const sendEmailWithPDF = async (pdfPath, recipientEmail) => {
+const sendEmailWithPDF = async (pdfPath, recipientEmail, companyName) => {
 
     // Email options
     const mailOptions = {
         from: "your-email@gmail.com", // Sender address
         to: recipientEmail,           // Recipient's email address
-        subject: "New Client Sign-Up Form", // Subject line
+        subject: `New Client Sign-Up Form - ${companyName}`, // Subject line
         text: "Please find attached the signed-up form.", // Plain text body
         attachments: [
             {
-                filename: "custom.pdf", // Name of the file attached
+                filename: `${companyName}.pdf`, // Name of the file attached
                 path: pdfPath,          // Path to the generated PDF
             },
         ],
