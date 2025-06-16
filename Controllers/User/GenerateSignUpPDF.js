@@ -3,8 +3,9 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const transporter = require("./Transpoter")
+const User = require("../../database/schema");
 
-const createCustomPDF = async (userData) => {
+const createCustomPDF = async (userData, id) => {
     const email = userData.contactInfoData.email;
     const doc = new PDFDocument({ size: "A4", margin: 10 });
     const outputPath = path.join(__dirname, "temp", "custom.pdf");
@@ -431,15 +432,16 @@ const createCustomPDF = async (userData) => {
 
     stream.on("finish", async () => {
         // Send the PDF via email once it's created
-        await sendEmailWithPDF(outputPath, email, userData.companyInfoData.companyName);
+        await sendEmailWithPDF(outputPath, email, userData.companyInfoData.companyName, id);
+        // Optional: Delete the file after sending email
+        fs.unlink(outputPath, (err) => {
+            if (err) console.error("Error deleting certificate:", err);
+        });
     });
 };
 
-
-
-
 // Function to send email with the PDF attachment
-const sendEmailWithPDF = async (pdfPath, recipientEmail, companyName) => {
+const sendEmailWithPDF = async (pdfPath, recipientEmail, companyName, userId) => {
 
     // Email options
     const mailOptions = {
@@ -457,11 +459,27 @@ const sendEmailWithPDF = async (pdfPath, recipientEmail, companyName) => {
 
     try {
         // Send email
-        await transporter.sendMail(mailOptions);
-        console.log("Email sent successfully!");
+        // await transporter.sendMail(mailOptions);
+        // console.log("Email sent successfully!");
+
+        // Read PDF as buffer
+        const fileBuffer = fs.readFileSync(pdfPath);
+
+        // Save to user's documents
+        await User.findByIdAndUpdate(userId, {
+            $push: {
+                documents: {
+                    description: `Signup form`,
+                    date: new Date(),
+                    documentFile: fileBuffer,
+                    filename: `${companyName}.pdf`,
+                    mimeType: 'application/pdf',
+                }
+            }
+        });
     } catch (error) {
         console.error("Error sending email: ", error);
     }
 };
 
-module.exports = {createCustomPDF}
+module.exports = { createCustomPDF }
