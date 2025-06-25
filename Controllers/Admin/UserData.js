@@ -8,14 +8,15 @@ const getAllUserData = async (req, res) => {
             "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers Membership"
         );
         // Transform the data
-        const formattedUsers = users.map(user => ({
-            companyName: user.companyInfoData?.companyName || "N/A",
-            companyEmail: user.companyInfoData?.companyEmail || "N/A",
-            companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
-            activeDriversCount: user.drivers ? user.drivers.filter(driver => !driver.isDeleted && driver.isActive === true).length : 0,
-            status: user.Membership?.planStatus || "N/A",
-            id: user._id
-        }));
+            const formattedUsers = users.map(user => ({
+                USDOT: user.contactInfoData?.usdot || "N/A",
+                companyName: user.companyInfoData?.companyName || "N/A",
+                companyEmail: user.companyInfoData?.companyEmail || "N/A",
+                companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
+                activeDriversCount: user.drivers ? user.drivers.filter(driver => !driver.isDeleted && driver.isActive === true).length : 0,
+                status: user.Membership?.planStatus || "N/A",
+                id: user._id
+            }));
 
         res.status(200).json({
             errorStatus: 0,

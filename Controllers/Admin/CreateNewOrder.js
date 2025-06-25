@@ -62,9 +62,11 @@ const getSiteInformation = async (req, res) => {
         const location_code = user.Membership?.locationCode;
         const package_code = packageId
         console.log(package_code)
+        console.log(orgId)
         const order_reason = orderReasonId
         let expiration_date_time = formData.orderExpires;
         let formattedExpiration = formatDateTime(expiration_date_time);
+        console.log(formattedExpiration)
         const referenceNumber = generateOrderReference();
         let allEmails = formData.email;
 
@@ -106,7 +108,8 @@ const getSiteInformation = async (req, res) => {
                 }
             }
         );
-
+        // Check if the response contains an error
+        console.log(response.data)
         const success = response.data.success;
         const caseNumber = response.data.case_number;
         const scheduling_url = response.data.case_data.scheduling_url;

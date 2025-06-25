@@ -1,9 +1,9 @@
 const bcrypt = require("bcrypt")
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
-const transporter = require("./Transpoter")
 const { createCustomPDF } = require("./GenerateSignUpPDF")
 const { getOrgId, getLocationCode } = require("./getLocationCodeAndOrgID");
+const { sendResetEmail } = require("./EmailTempletes/ResetPassword")
 
 
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
@@ -98,7 +98,8 @@ const forgotPassword = async (req, res) => {
                 message: "If an account with that email exists, a password reset link has been sent.",
             });
         }
-
+        const Name = `${user.contactInfoData.firstName} ${user.contactInfoData.lastName}`
+        const CompanyName = `${user.companyInfoData.companyName}`
         // Generate reset token and expiry time (1 hour expiry)
         const resetToken = crypto.randomBytes(20).toString("hex");
         const resetTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour expiry
@@ -107,20 +108,8 @@ const forgotPassword = async (req, res) => {
         user.resetToken = resetToken;
         user.resetTokenExpiry = resetTokenExpiry;
 
-        // Send reset email (example logic)
-        const resetLink = `http://localhost:3000/resetPassword?token=${resetToken}&email=${email}`;
-        // Send reset email
-        await transporter.sendMail({
-            from: process.env.SMTP_USER,
-            to: email,
-            subject: "Password Reset Request",
-            html: `
-            <h3>Password Reset Request</h3>
-            <p>We received a request to reset your password. Click the link below to reset it:</p>
-            <a href="${resetLink}">${resetLink}</a>
-            <p>This link will expire in 1 hour. If you didn't request a password reset, you can ignore this email.</p>
-        `,
-        });
+        await sendResetEmail({ email, resetToken, Name, CompanyName });
+
 
         await user.save();
         res.status(200).json({

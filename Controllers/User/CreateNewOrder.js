@@ -8,11 +8,22 @@ const password = process.env.PASSWORD;
 const getAllCompanyAllDetials = async (req, res) => {
     try {
         const userID = req.user.userId;
-        const companies = await User.find({
+
+        const company = await User.findOne({
+            _id: userID,
             role: ["User"],
             "Membership.planStatus": "Active"
         });
-        const formattedCompanies = companies.map((company) => ({
+
+        if (!company) {
+            return res.status(404).json({
+                errorStatus: 1,
+                message: "No active membership company found for the given user ID",
+                data: [],
+            });
+        }
+
+        const formattedCompany = {
             _id: company._id,
             companyName: company.companyInfoData.companyName || "",
             companyDetails: company.companyInfoData,
@@ -24,12 +35,12 @@ const getAllCompanyAllDetials = async (req, res) => {
                 _id: reason._id,
                 orderReasonName: reason.order_reason_name || ""
             })) || []
-        }));
+        };
 
         res.status(200).json({
             errorStatus: 0,
-            message: "All company details retrieved successfully",
-            data: formattedCompanies,
+            message: "Company details retrieved successfully",
+            data: [formattedCompany], // still returning array for consistency
         });
     } catch (error) {
         res.status(500).json({
@@ -39,6 +50,7 @@ const getAllCompanyAllDetials = async (req, res) => {
         });
     }
 };
+
 
 function generateOrderReference() {
     const uuid = crypto.randomUUID(); // 36 chars
@@ -92,6 +104,8 @@ const getSiteInformation = async (req, res) => {
             "participant_region": formData.state,
             "report message": ""
         }
+
+        console.log(payloadForCreate)
 
         const response = await axios.post(
             'https://demo.i3screen.net/api/scheduling/create',

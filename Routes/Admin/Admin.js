@@ -21,6 +21,12 @@ AdminRoutes.post("/addDriver",authenticateAndAuthorize(["Admin"]) ,AddDriver);
 AdminRoutes.post("/updateDriver",authenticateAndAuthorize(["Admin"]) ,updateDriver);
 AdminRoutes.post("/deleteDriver",authenticateAndAuthorize(["Admin"]) ,deleteDriver);
 
+// routes for admin dashboard
+const {getCustomerAndAgencyCount, getUserCountsLast6Months, getMonthlyTestScheduleStats} = require("../../Controllers/Admin/Dashboard")
+AdminRoutes.get("/getCustomerAndAgencyCount",authenticateAndAuthorize(["Admin"]), getCustomerAndAgencyCount);
+AdminRoutes.get("/getUserCountsLast6Months",authenticateAndAuthorize(["Admin"]), getUserCountsLast6Months);
+AdminRoutes.get("/getMonthlyTestScheduleStats",authenticateAndAuthorize(["Admin"]), getMonthlyTestScheduleStats);
+
 // routes for agency
 const {getAllAgencyData, getSingleAgencyData, getCompanyList, updateAgencyData, createNewAgency} = require("../../Controllers/Admin/Agency")
 AdminRoutes.get("/getAllAgencyData",authenticateAndAuthorize(["Admin"]) ,getAllAgencyData);
