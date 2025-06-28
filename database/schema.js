@@ -63,13 +63,6 @@ const documentSchema = new mongoose.Schema({
   documentFile: Buffer,
   filename: String,
   mimeType: String,
-  uploadedBy: {
-    _id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    name: String,
-  },
 }, { _id: true });
 
 // Invoice schema

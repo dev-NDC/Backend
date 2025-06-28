@@ -2,12 +2,14 @@ const bcrypt = require("bcrypt")
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { createCustomPDF } = require("./GenerateSignUpPDF")
+const { createAgreementPDF } = require("./AgreementPDF")
+const { generateCertificate } = require("./CertificatePDF");
 const { getOrgId, getLocationCode } = require("./getLocationCodeAndOrgID");
 const { sendResetEmail } = require("./EmailTempletes/ResetPassword")
 
 
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
-const User = require("../../database/schema")
+const User = require("../../database/schema");
 
 
 const login = async (req, res) => {
@@ -72,7 +74,12 @@ const signup = async (req, res) => {
         newUser.Membership.orgId = orgId;
         newUser.Membership.locationCode = locationCode;
         await newUser.save();
-        createCustomPDF(req.body);
+
+        const userId = newUser._id
+
+        createCustomPDF(req.body, userId);
+        createAgreementPDF(req.body, userId);
+        generateCertificate(req.body, userId);
         res.status(200).json({
             errorStatus: 0,
             message: "Account created Successfully!"
