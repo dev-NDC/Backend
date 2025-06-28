@@ -1,36 +1,41 @@
-const User = require("../../database/schema"); // Import User model
+const User = require("../../database/UserSchema"); // Import User model
 
 const getAllUserData = async (req, res) => {
-    try {
-        // Fetch users with only the "user" role
-        const users = await User.find(
-            { role: ["User"] },  // Ensures the role array has exactly one element and that is "user"
-            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers Membership"
-        );
-        // Transform the data
-        const formattedUsers = users.map(user => ({
-            companyName: user.companyInfoData?.companyName || "N/A",
-            companyEmail: user.companyInfoData?.companyEmail || "N/A",
-            companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
-            activeDriversCount: user.drivers ? user.drivers.filter(driver => !driver.isDeleted && driver.isActive === true).length : 0,
-            status: user.Membership?.planStatus || "N/A",
-            id: user._id
-        }));
+  try {
+    // Fetch all users (no role filtering needed)
+    const users = await User.find(
+      {},
+      "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers Membership"
+    );
 
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Data retrieved successfully",
-            data: formattedUsers
-        });
+    // Transform the data
+    const formattedUsers = users.map(user => ({
+      companyName: user.companyInfoData?.companyName || "N/A",
+      companyEmail: user.companyInfoData?.companyEmail || "N/A",
+      companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
+      activeDriversCount: user.drivers
+        ? user.drivers.filter(driver => !driver.isDeleted && driver.isActive === true).length
+        : 0,
+      status: user.Membership?.planStatus || "N/A",
+      id: user._id
+    }));
 
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error, please try again later",
-            error: error.message
-        });
-    }
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Data retrieved successfully",
+      data: formattedUsers
+    });
+
+  } catch (error) {
+    console.error("getAllUserData error:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error, please try again later",
+      error: error.message
+    });
+  }
 };
+
 
 
 const getSingleUserDetails = async (req, res) => {

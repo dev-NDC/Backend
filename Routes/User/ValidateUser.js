@@ -2,9 +2,9 @@ const express = require("express");
 const validateUser = express.Router();
 
 const {verifyUser} = require("../../Controllers/User/ValidateUser");
-const {Verification} = require("../../Middleware/verifyUser")
+const {userAuth} = require("../../Middleware/userAuth")
 
 
-validateUser.get("/verify", Verification(), verifyUser);
+validateUser.get("/verify", userAuth , verifyUser);
 
 module.exports = validateUser;

@@ -4,9 +4,9 @@ const path = require("path");
 const axios = require("axios");
 const transporter = require("./Transpoter")
 
-const User = require("../../database/schema");
+const User = require("../../database/UserSchema");
 
-const createAgreementPDF = async (userData, id) => {
+const createAgreementPDF = async (userData, id, planName, planPrice) => {
     const pageMargin = 30; // Same margin on all sides
     const contentPadding = 10;
 
@@ -459,7 +459,7 @@ regulatory requirements.`);
 
     // Table Body Rows
     const rows = [
-        [`${userData.selectedPlanName}`, "$99/Year"],
+        [`${planName}`, `$${planPrice}/Year`],
         ["DOT Panel Drug Test (URINE)", "$79/Test"],
         ["Observed DOT Test", "$79 + $35/Test"],
         ["Breath & Alcohol Test (BAT)", "$79/Test"],

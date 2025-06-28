@@ -1,16 +1,27 @@
-const User = require("../../database/schema");
+const User = require("../../database/UserSchema");
+const isCompanyHandledByAgency = require("./checkAgencyPermission");
+
 
 // Upload Certificate
 const uploadCertificate = async (req, res) => {
     try {
         console.log("File upload request received");
         const { currentId, description, issueDate, expirationDate } = req.body;
+        const agencyId = req.user.id;
         const file = req.file;
-
         if (!file) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "No file uploaded",
+            });
+        }
+
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(currentId, agencyId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
             });
         }
 
@@ -52,10 +63,20 @@ const uploadCertificate = async (req, res) => {
 const editCertificate = async (req, res) => {
     try {
         const { currentId, certificateId, updatedData } = req.body;
+        const agencyId = req.user.id;
 
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
+        }
+
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(userId, agencyId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
+            });
         }
 
         const certificate = user.certificates.id(certificateId);
@@ -87,10 +108,19 @@ const editCertificate = async (req, res) => {
 const deleteCertificate = async (req, res) => {
     try {
         const { currentId, certificateId } = req.body;
-
+        const agencyId = req.user.id;
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
+        }
+
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(userId, agencyId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
+            });
         }
 
         const certIndex = user.certificates.findIndex(cert => cert._id.toString() === certificateId);
@@ -116,4 +146,4 @@ const deleteCertificate = async (req, res) => {
 };
 
 
-module.exports = {uploadCertificate,editCertificate,deleteCertificate};
+module.exports = { uploadCertificate, editCertificate, deleteCertificate };

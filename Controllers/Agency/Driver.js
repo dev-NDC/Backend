@@ -1,15 +1,29 @@
-const User = require("../../database/schema")
+const User = require("../../database/UserSchema");
+const isCompanyHandledByAgency = require("./checkAgencyPermission");
+
 
 const AddDriver = async (req, res) => {
     try {
-        const {firstName, lastName, email, license, dob, phone } = req.body.driver;
+        const { firstName, lastName, email, license, dob, phone } = req.body.driver;
         const userId = req.body.currentId;
+        const agencyId = req.user.id;
+
         if (!userId || userId == null || !firstName || !lastName || !email || !license || !dob || !phone) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "Please provide all required fields"
             });
         }
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(userId, agencyId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
+            });
+        }
+
+
         // Find user by ID
         const user = await User.findById(userId);
         if (!user) {
@@ -21,14 +35,14 @@ const AddDriver = async (req, res) => {
 
         // Create new driver object
         const newDriver = {
-            first_name : firstName,
-            last_name : lastName,
+            first_name: firstName,
+            last_name: lastName,
             email,
             government_id: license,
             dob,
             phone,
             creationDate: new Date().toISOString(), // Current date
-            isActive : true,
+            isActive: true,
             createdBy: "Agency", // Set createdBy to Customer
             deletionDate: null, // Leave empty
             isDeleted: false
@@ -55,11 +69,21 @@ const updateDriver = async (req, res) => {
     try {
         const userId = req.body.currentId;
         const driverData = req.body.driver;
+        const agencyId = req.user.id;
 
         if (!driverData || !driverData._id) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "Invalid driver data. '_id' is required.",
+            });
+        }
+
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(userId, agencyId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
             });
         }
 
@@ -104,8 +128,15 @@ const deleteDriver = async (req, res) => {
         const driverId = req.body.driver._id;  // Change this to match your body structure
         const userId = req.body.currentId;   // Ensure the current user ID is coming from req.user (authentication)
 
-        console.log("Driver ID:", driverId);
-        console.log("User ID:", userId);
+        const agencyId = req.user.id; // Get the agency ID from the authenticated user
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(userId, agencyId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
+            });
+        }
         if (!driverId) {
             return res.status(400).json({
                 errorStatus: 1,

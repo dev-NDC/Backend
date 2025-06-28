@@ -1,4 +1,5 @@
-const User = require("../../database/schema");
+const User = require("../../database/UserSchema");
+
 
 // Upload Document
 const uploadDocument = async (req, res) => {

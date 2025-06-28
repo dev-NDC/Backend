@@ -1,4 +1,4 @@
-const User = require("../../database/schema")
+const User = require("../../database/UserSchema");
 const axios = require('axios');
 const crypto = require("crypto");
 require('dotenv').config();
