@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const { createCustomPDF } = require("./GenerateSignUpPDF")
 const { createAgreementPDF } = require("./AgreementPDF")
 const { generateCertificate } = require("./CertificatePDF");
+const { sendWelcomeEmail } = require("./Welcoming")
 const { getOrgId, getLocationCode } = require("./getLocationCodeAndOrgID");
 const { sendResetEmail } = require("./EmailTempletes/ResetPassword")
 
@@ -12,6 +13,7 @@ const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
 const User = require("../../database/UserSchema");
 const Admin = require("../../database/AdminSchema");
 const Agency = require("../../database/AgencySchema");
+const Setting = require("../../database/Setting")
 
 const login = async (req, res) => {
   try {
@@ -114,10 +116,16 @@ const signup = async (req, res) => {
     // Create new user
     const newUser = new User(req.body);
 
-    const orgId = await getOrgId(req.body);
-    let locationCode = null;
-    if (orgId !== null) {
-      locationCode = await getLocationCode(req.body, orgId);
+    // Fetch settings to determine which actions to perform
+    const settings = await Setting.findOne({}) || {};
+
+
+    var orgId = null, locationCode = null
+    if (settings.orgIdAndLocationCode) {
+      orgId = await getOrgId(req.body);
+      if (orgId !== null) {
+        locationCode = await getLocationCode(req.body, orgId);
+      }
     }
     const planPrice = req.body.Membership.selectedPlan === 1 ? 99 : req.body.Membership.selectedPlan === 2 ? 150 : 275;
     newUser.Membership.orgId = orgId;
@@ -130,9 +138,18 @@ const signup = async (req, res) => {
 
     const userId = newUser._id;
 
-    createCustomPDF(req.body, userId);
-    createAgreementPDF(req.body, userId, newUser.Membership.planName, planPrice);
-    generateCertificate(req.body, userId);
+    if (settings.sendCustomerPDF) {
+      createCustomPDF(req.body, userId);
+    }
+    if (settings.sendAgreementPDF) {
+      createAgreementPDF(req.body, userId, newUser.Membership.planName, planPrice);
+    }
+    if (settings.sendCertificatePDF) {
+      generateCertificate(req.body, userId);
+    }
+    if (settings.sendWelcomeEmail) {
+      sendWelcomeEmail(req.body);
+    }
 
     res.status(200).json({
       errorStatus: 0,

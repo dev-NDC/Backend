@@ -98,4 +98,15 @@ AdminRoutes.post("/addNote",adminAuth, addNote);
 AdminRoutes.post("/editNote",adminAuth, editNote);
 AdminRoutes.post("/deleteNote",adminAuth, deleteNote);
 
+
+// routes for settings
+const {updateSendWelcomeEmail, updateSendCustomerPDF, updateSendAgreementPDF, updateSendCertificatePDF, updateOrgIdAndLocationCode, getSettings} = require("../../Controllers/Admin/setting");
+
+AdminRoutes.post("/updateSendWelcomeEmail", adminAuth, updateSendWelcomeEmail);
+AdminRoutes.post("/updateSendCustomerPDF", adminAuth, updateSendCustomerPDF);
+AdminRoutes.post("/updateSendAgreementPDF", adminAuth, updateSendAgreementPDF);
+AdminRoutes.post("/updateSendCertificatePDF", adminAuth, updateSendCertificatePDF);
+AdminRoutes.post("/updateOrgIdAndLocationCode", adminAuth, updateOrgIdAndLocationCode);
+AdminRoutes.get("/getSettings", adminAuth, getSettings); 
+
 module.exports = AdminRoutes;

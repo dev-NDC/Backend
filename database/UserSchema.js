@@ -154,7 +154,8 @@ const userSchema = new mongoose.Schema({
   // admin notes for users
   notes: [{
     text: { type: String, required: true },
-    timestamp: { type: Date, default: Date.now }
+    timestamp: { type: Date, default: Date.now },
+    addedBy : String,
   }],
 
   // Related entities

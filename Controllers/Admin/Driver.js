@@ -104,8 +104,6 @@ const deleteDriver = async (req, res) => {
         const driverId = req.body.driver._id;  // Change this to match your body structure
         const userId = req.body.currentId;   // Ensure the current user ID is coming from req.user (authentication)
 
-        console.log("Driver ID:", driverId);
-        console.log("User ID:", userId);
         if (!driverId) {
             return res.status(400).json({
                 errorStatus: 1,

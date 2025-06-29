@@ -40,6 +40,10 @@ app.use("/api/admin", AdminRoutes);
 const AgencyRoutes = require("./Routes/Agency/Agency");
 app.use("/api/agency", AgencyRoutes);
 
+// random routes
+const RandomRoutes = require("./Routes/Random/Random")
+app.use("/api/random",RandomRoutes)
+
 
 // I3Screen Routes
 // Accept raw XML at the SOAP endpoint

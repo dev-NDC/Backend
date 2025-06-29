@@ -223,7 +223,6 @@ const getSiteInformation = async (req, res) => {
         }
 
     } catch (error) {
-        console.log(error)
         res.status(500).json({
             errorStatus: 1,
             message: "Server error, please try again later",
@@ -233,7 +232,6 @@ const getSiteInformation = async (req, res) => {
 };
 
 const handleNewPincode = async (req, res) => {
-    console.log(req.body)
     try {
         const payloadForSites = {
             "case_number": req.body.caseNumber,
