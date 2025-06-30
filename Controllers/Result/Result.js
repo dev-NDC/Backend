@@ -1,7 +1,7 @@
 const path = require("path")
 const xml2js = require('xml2js');
 const fs = require('fs');
-const User = require("../../database/schema")
+const User = require("../../database/UserSchema");
 const sendWSDLFile = async (req, res) => {
     try {
         res.status(200).sendFile(path.join(__dirname, "wsdl.xml"));

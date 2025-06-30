@@ -7,88 +7,96 @@ const upload = multer({ storage: storage });
 const {verifyAdmin} = require("../../Controllers/Admin/ValidateAdmin");
 const {getAllUserData,getSingleUserDetails,updateCompanyInformation,updatePaymentInformation, updateMembershipInformation } = require("../../Controllers/Admin/UserData")
 const {AddDriver, updateDriver, deleteDriver} = require("../../Controllers/Admin/Driver")
-const {authenticateAndAuthorize} = require("../../Middleware/authenticateAndAuthorize")
-const {Verification} = require("../../Middleware/verifyAdmin")
+const {adminAuth} = require("../../Middleware/adminAuth")
 
 
-AdminRoutes.get("/verify", Verification(), verifyAdmin);
-AdminRoutes.get("/getAllUserData",authenticateAndAuthorize(["Admin"]) ,getAllUserData);
-AdminRoutes.post("/getSingleUserDetails",authenticateAndAuthorize(["Admin"]) ,getSingleUserDetails);
-AdminRoutes.post("/updateCompanyInformation",authenticateAndAuthorize(["Admin"]) ,updateCompanyInformation);
-AdminRoutes.post("/updatePaymentInformation",authenticateAndAuthorize(["Admin"]) ,updatePaymentInformation);
-AdminRoutes.post("/updateMembershipInformation",authenticateAndAuthorize(["Admin"]) ,updateMembershipInformation);
-AdminRoutes.post("/addDriver",authenticateAndAuthorize(["Admin"]) ,AddDriver);
-AdminRoutes.post("/updateDriver",authenticateAndAuthorize(["Admin"]) ,updateDriver);
-AdminRoutes.post("/deleteDriver",authenticateAndAuthorize(["Admin"]) ,deleteDriver);
+AdminRoutes.get("/verify", adminAuth, verifyAdmin);
+AdminRoutes.get("/getAllUserData",adminAuth ,getAllUserData);
+AdminRoutes.post("/getSingleUserDetails",adminAuth ,getSingleUserDetails);
+AdminRoutes.post("/updateCompanyInformation",adminAuth ,updateCompanyInformation);
+AdminRoutes.post("/updatePaymentInformation",adminAuth ,updatePaymentInformation);
+AdminRoutes.post("/updateMembershipInformation",adminAuth ,updateMembershipInformation);
+AdminRoutes.post("/addDriver",adminAuth ,AddDriver);
+AdminRoutes.post("/updateDriver",adminAuth ,updateDriver);
+AdminRoutes.post("/deleteDriver",adminAuth ,deleteDriver);
 
 // routes for admin dashboard
 const {getCustomerAndAgencyCount, getUserCountsLast6Months, getMonthlyTestScheduleStats} = require("../../Controllers/Admin/Dashboard")
-AdminRoutes.get("/getCustomerAndAgencyCount",authenticateAndAuthorize(["Admin"]), getCustomerAndAgencyCount);
-AdminRoutes.get("/getUserCountsLast6Months",authenticateAndAuthorize(["Admin"]), getUserCountsLast6Months);
-AdminRoutes.get("/getMonthlyTestScheduleStats",authenticateAndAuthorize(["Admin"]), getMonthlyTestScheduleStats);
+AdminRoutes.get("/getCustomerAndAgencyCount",adminAuth, getCustomerAndAgencyCount);
+AdminRoutes.get("/getUserCountsLast6Months",adminAuth, getUserCountsLast6Months);
+AdminRoutes.get("/getMonthlyTestScheduleStats",adminAuth, getMonthlyTestScheduleStats);
 
 // routes for agency
-const {getAllAgencyData, getSingleAgencyData, getCompanyList, updateAgencyData, createNewAgency} = require("../../Controllers/Admin/Agency")
-AdminRoutes.get("/getAllAgencyData",authenticateAndAuthorize(["Admin"]) ,getAllAgencyData);
-AdminRoutes.post("/getSingleAgencyDetails",authenticateAndAuthorize(["Admin"]) ,getSingleAgencyData);
-AdminRoutes.get("/getCompanyList",authenticateAndAuthorize(["Admin"]) ,getCompanyList);
-AdminRoutes.post("/updateAgencyData",authenticateAndAuthorize(["Admin"]) ,updateAgencyData);
-AdminRoutes.post("/createNewAgency",authenticateAndAuthorize(["Admin"]) ,createNewAgency);
+const {getAllAgencyData, getSingleAgencyData, getCompanyList, updateAgencyData, createNewAgency, deleteAgency} = require("../../Controllers/Admin/Agency")
+AdminRoutes.get("/getAllAgencyData",adminAuth ,getAllAgencyData);
+AdminRoutes.post("/getSingleAgencyDetails",adminAuth ,getSingleAgencyData);
+AdminRoutes.get("/getCompanyList",adminAuth ,getCompanyList);
+AdminRoutes.post("/updateAgencyData",adminAuth ,updateAgencyData);
+AdminRoutes.post("/createNewAgency",adminAuth ,createNewAgency);
+AdminRoutes.post("/deleteAgency",adminAuth ,deleteAgency);
+
 
 // routes for admin
 const {getAllAdminData, updateAdminInformation, deleteAdminAccount, createNewAdmin} = require("../../Controllers/Admin/Admin")
-AdminRoutes.get("/getAllAdminData",authenticateAndAuthorize(["Admin"]) ,getAllAdminData);
-AdminRoutes.post("/updateAdminData",authenticateAndAuthorize(["Admin"]) ,updateAdminInformation);
-AdminRoutes.post("/deleteAdmin",authenticateAndAuthorize(["Admin"]) ,deleteAdminAccount);
-AdminRoutes.post("/createNewAdmin",authenticateAndAuthorize(["Admin"]) ,createNewAdmin);
+AdminRoutes.get("/getAllAdminData",adminAuth ,getAllAdminData);
+AdminRoutes.post("/updateAdminData",adminAuth ,updateAdminInformation);
+AdminRoutes.post("/deleteAdmin",adminAuth ,deleteAdminAccount);
+AdminRoutes.post("/createNewAdmin",adminAuth ,createNewAdmin);
 
 // routes for Random
 const {addRandomDriver, fetchRandomDriver, fetchRandomData, deleteRandomEntry, updateRandomStatus} = require("../../Controllers/Admin/Random")
-AdminRoutes.post("/addRandomDriver",authenticateAndAuthorize(["Admin"]) ,addRandomDriver);
-AdminRoutes.get("/fetchRandomDriver",authenticateAndAuthorize(["Admin"]) ,fetchRandomDriver);
-AdminRoutes.get("/fetchRandomData",authenticateAndAuthorize(["Admin"]) ,fetchRandomData);
-AdminRoutes.post("/deleteRandomDriver",authenticateAndAuthorize(["Admin"]) ,deleteRandomEntry);
-AdminRoutes.post("/updateRandomStatus",authenticateAndAuthorize(["Admin"]) ,updateRandomStatus);
+AdminRoutes.post("/addRandomDriver",adminAuth ,addRandomDriver);
+AdminRoutes.get("/fetchRandomDriver",adminAuth ,fetchRandomDriver);
+AdminRoutes.get("/fetchRandomData",adminAuth ,fetchRandomData);
+AdminRoutes.post("/deleteRandomDriver",adminAuth ,deleteRandomEntry);
+AdminRoutes.post("/updateRandomStatus",adminAuth ,updateRandomStatus);
 
 
 //export routes
 const {exportAgency, exportDriver, exportCompany} = require("../../Controllers/Admin/Export")
-AdminRoutes.get("/exportAgency",authenticateAndAuthorize(["Admin"]) ,exportAgency);
-AdminRoutes.get("/exportDriver",authenticateAndAuthorize(["Admin"]) ,exportDriver);
-AdminRoutes.get("/exportCompany",authenticateAndAuthorize(["Admin"]) ,exportCompany);
+AdminRoutes.get("/exportAgency",adminAuth ,exportAgency);
+AdminRoutes.get("/exportDriver",adminAuth ,exportDriver);
+AdminRoutes.get("/exportCompany",adminAuth ,exportCompany);
 
 
 // routes for certificate 
 const {uploadCertificate,editCertificate,deleteCertificate} = require("../../Controllers/Admin/Certificate")
-AdminRoutes.post("/uploadCertificate",authenticateAndAuthorize(["Admin"]),upload.single("file"),uploadCertificate);
-AdminRoutes.post("/editCertificate",authenticateAndAuthorize(["Admin"]), editCertificate);
-AdminRoutes.post("/deleteCertificate",authenticateAndAuthorize(["Admin"]), deleteCertificate);
+AdminRoutes.post("/uploadCertificate",adminAuth,upload.single("file"),uploadCertificate);
+AdminRoutes.post("/editCertificate",adminAuth, editCertificate);
+AdminRoutes.post("/deleteCertificate",adminAuth, deleteCertificate);
 
 // routes for document 
 const {uploadDocument,editDocument,deleteDocument} = require("../../Controllers/Admin/Document")
-AdminRoutes.post("/uploadDocument",authenticateAndAuthorize(["Admin"]),upload.single("file"),uploadDocument);
-AdminRoutes.post("/editDocument",authenticateAndAuthorize(["Admin"]), editDocument);
-AdminRoutes.post("/deleteDocument",authenticateAndAuthorize(["Admin"]), deleteDocument);
+AdminRoutes.post("/uploadDocument",adminAuth,upload.single("file"),uploadDocument);
+AdminRoutes.post("/editDocument",adminAuth, editDocument);
+AdminRoutes.post("/deleteDocument",adminAuth, deleteDocument);
 
 // routes for invoice
 const {uploadInvoice,editInvoice,deleteInvoice} = require("../../Controllers/Admin/Invoice")
-AdminRoutes.post("/uploadInvoice",authenticateAndAuthorize(["Admin"]),upload.single("file"),uploadInvoice);
-AdminRoutes.post("/editInvoice",authenticateAndAuthorize(["Admin"]), editInvoice);
-AdminRoutes.post("/deleteInvoice",authenticateAndAuthorize(["Admin"]), deleteInvoice);
+AdminRoutes.post("/uploadInvoice",adminAuth,upload.single("file"),uploadInvoice);
+AdminRoutes.post("/editInvoice",adminAuth, editInvoice);
+AdminRoutes.post("/deleteInvoice",adminAuth, deleteInvoice);
 
 // routes for results
 const {uploadResult, editResult, deleteResult, getAllResult} = require("../../Controllers/Admin/Result")
-AdminRoutes.post("/uploadResult",authenticateAndAuthorize(["Admin"]),upload.single("file"),uploadResult);
-AdminRoutes.post("/editResult", authenticateAndAuthorize(["Admin"]), upload.single("file"), editResult);
-AdminRoutes.post("/deleteResult",authenticateAndAuthorize(["Admin"]), deleteResult);
-AdminRoutes.get("/getAllResult",authenticateAndAuthorize(["Admin"]), getAllResult);
+AdminRoutes.post("/uploadResult",adminAuth,upload.single("file"),uploadResult);
+AdminRoutes.post("/editResult", adminAuth, upload.single("file"), editResult);
+AdminRoutes.post("/deleteResult",adminAuth, deleteResult);
+AdminRoutes.get("/getAllResult",adminAuth, getAllResult);
 
 
 // routes for create new order
 const {getAllCompanyAllDetials, getSiteInformation, newDriverSubmitOrder, handleNewPincode} = require("../../Controllers/Admin/CreateNewOrder")
-AdminRoutes.get("/getAllCompanyAllDetials",authenticateAndAuthorize(["Admin"]), getAllCompanyAllDetials);
-AdminRoutes.post("/getSiteInformation",authenticateAndAuthorize(["Admin"]), getSiteInformation);
-AdminRoutes.post("/handleNewPincode",authenticateAndAuthorize(["Admin"]), handleNewPincode);
-AdminRoutes.post("/newDriverSubmitOrder",authenticateAndAuthorize(["Admin"]), newDriverSubmitOrder);
+AdminRoutes.get("/getAllCompanyAllDetials",adminAuth, getAllCompanyAllDetials);
+AdminRoutes.post("/getSiteInformation",adminAuth, getSiteInformation);
+AdminRoutes.post("/handleNewPincode",adminAuth, handleNewPincode);
+AdminRoutes.post("/newDriverSubmitOrder",adminAuth, newDriverSubmitOrder);
+
+
+// routes for notes
+const {addNote, editNote, deleteNote} = require("../../Controllers/Admin/Notes");
+AdminRoutes.post("/addNote",adminAuth, addNote);
+AdminRoutes.post("/editNote",adminAuth, editNote);
+AdminRoutes.post("/deleteNote",adminAuth, deleteNote);
 
 module.exports = AdminRoutes;

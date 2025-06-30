@@ -9,176 +9,280 @@ const { sendResetEmail } = require("./EmailTempletes/ResetPassword")
 
 
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
-const User = require("../../database/schema");
-
+const User = require("../../database/UserSchema");
+const Admin = require("../../database/AdminSchema");
+const Agency = require("../../database/AgencySchema");
 
 const login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const user = await User.findOne({ "contactInfoData.email": email });
-        if (!user) {
-            return res.status(401).json({
-                errorStatus: 1,
-                message: "Incorrect email or password",
-            });
-        }
+  try {
+    const { email, password } = req.body;
 
-        const savedPassword = user.contactInfoData.password;
-        const isMatch = await bcrypt.compare(password, savedPassword);
-        if (!isMatch) {
-            return res.status(401).json({
-                errorStatus: 1,
-                message: "Incorrect email or password",
-            });
-        }
+    let foundUser = null;
+    let role = null;
+    let savedPassword = null;
 
-        // Generate JWT token
-        const token = jwt.sign(
-            { userId: user._id, email: user.contactInfoData.email, role: user.role },
-            JWT_SECRET_KEY,
-            { expiresIn: "30d" }
-        );
-
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Login successful",
-            token,
-            role: user.role,
-        });
-
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "An unexpected error occurred. Please try again later.",
-        });
+    // Search in User schema
+    const user = await User.findOne({ "contactInfoData.email": email });
+    if (user) {
+      foundUser = user;
+      savedPassword = user.contactInfoData.password;
+      role = "User";
     }
+
+    // Search in Admin schema
+    if (!foundUser) {
+      const admin = await Admin.findOne({ email });
+      if (admin) {
+        foundUser = admin;
+        savedPassword = admin.password;
+        role = "Admin";
+      }
+    }
+
+    // Search in Agency schema
+    if (!foundUser) {
+      const agency = await Agency.findOne({ email });
+      if (agency) {
+        foundUser = agency;
+        savedPassword = agency.password;
+        role = "Agency";
+      }
+    }
+
+    // If not found in any schema
+    if (!foundUser) {
+      return res.status(401).json({
+        errorStatus: 1,
+        message: "Incorrect email or password",
+      });
+    }
+
+    // Validate password
+    const isMatch = await bcrypt.compare(password, savedPassword);
+    if (!isMatch) {
+      return res.status(401).json({
+        errorStatus: 1,
+        message: "Incorrect email or password",
+      });
+    }
+
+    // Generate token
+    const token = jwt.sign(
+      {
+        id: foundUser._id,
+        email,
+        role,
+      },
+      JWT_SECRET_KEY,
+      { expiresIn: "30d" }
+    );
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Login successful",
+      token,
+      role,
+    });
+
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "An unexpected error occurred. Please try again later.",
+    });
+  }
 };
 
 const signup = async (req, res) => {
-    try {
-        const { email } = req.body.contactInfoData;
-        const exitingUser = await User.findOne({ "contactInfoData.email": email })
-        if (exitingUser) {
-            return res.status(400).json({
-                errorStatus: 1,
-                message: "User already exists with this email!"
-            });
-        }
-        const newUser = new User(req.body);
+  try {
+    const { email } = req.body.contactInfoData;
 
-        const orgId = await getOrgId(req.body);
-        let locationCode = null;
-        if (orgId !== null) {
-            locationCode = await getLocationCode(req.body, orgId);
-        }
-        newUser.Membership.orgId = orgId;
-        newUser.Membership.locationCode = locationCode;
-        await newUser.save();
+    // Check if email exists in any of the three collections
+    const [existingUser, existingAdmin, existingAgency] = await Promise.all([
+      User.findOne({ "contactInfoData.email": email }),
+      Admin.findOne({ email }),
+      Agency.findOne({ email }),
+    ]);
 
-        const userId = newUser._id
-
-        createCustomPDF(req.body, userId);
-        createAgreementPDF(req.body, userId);
-        generateCertificate(req.body, userId);
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Account created Successfully!"
-        })
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "An unexpected error occurred. Please try again later."
-        })
+    if (existingUser || existingAdmin || existingAgency) {
+      return res.status(400).json({
+        errorStatus: 1,
+        message: "User already exists with this email!"
+      });
     }
 
+    // Create new user
+    const newUser = new User(req.body);
+
+    const orgId = await getOrgId(req.body);
+    let locationCode = null;
+    if (orgId !== null) {
+      locationCode = await getLocationCode(req.body, orgId);
+    }
+    const planPrice = req.body.Membership.selectedPlan === 1 ? 99 : req.body.Membership.selectedPlan === 2 ? 150 : 275;
+    newUser.Membership.orgId = orgId;
+    newUser.Membership.locationCode = locationCode;
+    newUser.Membership.planName = getPlanName(req.body.Membership.selectedPlan);
+    newUser.Membership.planStartDate = new Date();
+    newUser.Membership.planEndDate = new Date(new Date().setFullYear(new Date().getFullYear() + 1));
+
+    await newUser.save();
+
+    const userId = newUser._id;
+
+    createCustomPDF(req.body, userId);
+    createAgreementPDF(req.body, userId, newUser.Membership.planName, planPrice);
+    generateCertificate(req.body, userId);
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Account created Successfully!"
+    });
+  } catch (error) {
+    console.error("Signup Error:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "An unexpected error occurred. Please try again later."
+    });
+  }
+};
+
+function getPlanName(selectedPlan) {
+  if (selectedPlan === 1 || selectedPlan === "1") return "NON-DOT Account";
+  if (selectedPlan === 2 || selectedPlan === "2") return "1 Year Random Enrollment";
+  if (selectedPlan === 3 || selectedPlan === "3") return "3 Year Random Enrollment";
+  return "Unknown Plan";
 }
 
-
 const forgotPassword = async (req, res) => {
-    try {
-        const { email } = req.body;
-        const user = await User.findOne({ "contactInfoData.email": email });
+  try {
+    const { email } = req.body;
 
-        if (!user) {
-            return res.status(200).json({
-                errorStatus: 0,
-                message: "If an account with that email exists, a password reset link has been sent.",
-            });
-        }
-        const Name = `${user.contactInfoData.firstName} ${user.contactInfoData.lastName}`
-        const CompanyName = `${user.companyInfoData.companyName}`
-        // Generate reset token and expiry time (1 hour expiry)
-        const resetToken = crypto.randomBytes(20).toString("hex");
-        const resetTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour expiry
+    // Find user in any of the 3 collections
+    let user = await User.findOne({ "contactInfoData.email": email });
+    let role = "User";
 
-        // Save token and expiry in the user's document
-        user.resetToken = resetToken;
-        user.resetTokenExpiry = resetTokenExpiry;
-
-        await sendResetEmail({ email, resetToken, Name, CompanyName });
-
-
-        await user.save();
-        res.status(200).json({
-            errorStatus: 0,
-            message: "If an account with that email exists, a password reset link has been sent.",
-        });
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "An unexpected error occurred. Please try again later.",
-        });
+    if (!user) {
+      user = await Admin.findOne({ email });
+      role = "Admin";
     }
-};
 
+    if (!user) {
+      user = await Agency.findOne({ email });
+      role = "Agency";
+    }
+
+    // Respond generically whether or not the user exists
+    if (!user) {
+      return res.status(200).json({
+        errorStatus: 0,
+        message: "If an account with that email exists, a password reset link has been sent.",
+      });
+    }
+
+    // Generate token and expiry
+    const resetToken = crypto.randomBytes(20).toString("hex");
+    const resetTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
+
+    // Set fields
+    user.resetToken = resetToken;
+    user.resetTokenExpiry = resetTokenExpiry;
+
+    // Gather name info
+    let Name = "";
+    let CompanyName = "";
+
+    if (role === "User") {
+      Name = `${user.contactInfoData.firstName} ${user.contactInfoData.lastName}`;
+      CompanyName = user.companyInfoData.companyName || "";
+    } else if (role === "Admin") {
+      Name = `${user.firstName} ${user.lastName}`;
+    } else if (role === "Agency") {
+      Name = user.name;
+    }
+
+    // Send reset email
+    await sendResetEmail({ email, resetToken, Name, CompanyName });
+
+    // Save token
+    await user.save();
+
+    return res.status(200).json({
+      errorStatus: 0,
+      message: "If an account with that email exists, a password reset link has been sent.",
+    });
+
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+    return res.status(500).json({
+      errorStatus: 1,
+      message: "An unexpected error occurred. Please try again later.",
+    });
+  }
+};
 
 const resetPassword = async (req, res) => {
-    try {
-        const { email, token, password } = req.body;
+  try {
+    const { email, token, password } = req.body;
 
-        const user = await User.findOne({ "contactInfoData.email": email });
+    let user = await User.findOne({ "contactInfoData.email": email });
+    let role = "User";
 
-        if (!user) {
-            return res.status(404).json({
-                errorStatus: 1,
-                message: "User not found",
-            });
-        }
-
-        // Check if the token is valid and hasn't expired
-        if (
-            !user.resetToken ||
-            user.resetToken !== token ||
-            !user.resetTokenExpiry ||
-            user.resetTokenExpiry < Date.now()
-        ) {
-            return res.status(400).json({
-                errorStatus: 1,
-                message: "Invalid or expired password reset token",
-            });
-        }
-
-        // Update the password directly
-        user.contactInfoData.password = password; // Don't hash it here
-
-        // Clear reset token and expiry
-        user.resetToken = undefined;
-        user.resetTokenExpiry = undefined;
-
-        // Save the user document, the password will be hashed automatically due to the pre-save hook in the schema
-        await user.save();
-
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Password reset successful",
-        });
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "An unexpected error occurred. Please try again later.",
-        });
+    if (!user) {
+      user = await Admin.findOne({ email });
+      role = "Admin";
     }
-};
 
+    if (!user) {
+      user = await Agency.findOne({ email });
+      role = "Agency";
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        errorStatus: 1,
+        message: "User not found",
+      });
+    }
+
+    // Check token validity and expiration
+    if (
+      !user.resetToken ||
+      user.resetToken !== token ||
+      !user.resetTokenExpiry ||
+      user.resetTokenExpiry < Date.now()
+    ) {
+      return res.status(400).json({
+        errorStatus: 1,
+        message: "Invalid or expired password reset token",
+      });
+    }
+
+    // Update the password field based on role
+    if (role === "User") {
+      user.contactInfoData.password = password;
+    } else {
+      user.password = password;
+    }
+
+    // Clear token and expiry
+    user.resetToken = undefined;
+    user.resetTokenExpiry = undefined;
+
+    // Save the updated document
+    await user.save();
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Password reset successful",
+    });
+  } catch (error) {
+    console.error("Reset Password Error:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "An unexpected error occurred. Please try again later.",
+    });
+  }
+};
 
 module.exports = { login, signup, forgotPassword, resetPassword }

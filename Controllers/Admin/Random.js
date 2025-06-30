@@ -1,35 +1,42 @@
-const User = require("../../database/schema")
+const User = require("../../database/UserSchema");
 
 
 const fetchRandomDriver = async (req, res) => {
-    try {
-        // Fetch all users who have only 'user' role
-        const companies = await User.find({ role: ['User'] });
+  try {
+    // Fetch all users (companies) who have drivers
+    const companies = await User.find(
+      { "drivers.0": { $exists: true } },
+      "drivers companyInfoData.companyName"
+    );
 
-        const responseData = companies.map(company => {
-            const drivers = company.drivers
-                ?.filter(driver => !driver.isDeleted && driver.isActive  === true)
-                .map(driver => ({
-                    driverId: driver._id,
-                    driverName: `${driver?.first_name} ${driver?.last_name}`,
-                })) || [];
+    const responseData = companies.map(company => {
+      const drivers = company.drivers
+        ?.filter(driver => !driver.isDeleted && driver.isActive === true)
+        .map(driver => ({
+          driverId: driver._id,
+          driverName: `${driver.first_name || ""} ${driver.last_name || ""}`.trim(),
+        })) || [];
 
-            return {
-                companyId: company._id,
-                companyName: company.companyInfoData?.companyName || 'N/A',
-                drivers,
-            };
-        });
+      return {
+        companyId: company._id,
+        companyName: company.companyInfoData?.companyName || 'N/A',
+        drivers,
+      };
+    }).filter(company => company.drivers.length > 0); // Remove companies with no valid drivers
 
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Random data fetched successfully",
-            data: responseData,
-        });
-    } catch (error) {
-        console.error("Error fetching random data:", error);
-        res.status(500).json({ error: "Failed to fetch data" });
-    }
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Random data fetched successfully",
+      data: responseData,
+    });
+  } catch (error) {
+    console.error("Error fetching random data:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Failed to fetch data",
+      error: error.message
+    });
+  }
 };
 
 const addRandomDriver = async (req, res) => {

@@ -3,7 +3,7 @@ const fs = require('fs');
 const axios = require("axios");
 const transporter = require("./Transpoter");
 const path = require("path");
-const User = require("../../database/schema");
+const User = require("../../database/UserSchema");
 
 const generateCertificate = async (userData, id) => {
   const doc = new PDFDocument({
@@ -22,7 +22,7 @@ const generateCertificate = async (userData, id) => {
   doc.pipe(stream);
 
   const companyName = userData.companyInfoData.companyName;
-  const startDate = userData.membership?.startDate || "N/A";
+  const startDate =  new Date() || "N/A";
 
   // Move down before starting
   doc.moveDown(10);

@@ -1,4 +1,4 @@
-const User = require("../../database/schema")
+const User = require("../../database/UserSchema");
 const axios = require('axios');
 const crypto = require("crypto");
 require('dotenv').config();
@@ -6,37 +6,38 @@ const username = process.env.USERID;
 const password = process.env.PASSWORD;
 
 const getAllCompanyAllDetials = async (req, res) => {
-    try {
-        const companies = await User.find({
-            role: ["User"],
-            "Membership.planStatus": "Active"
-        });
-        const formattedCompanies = companies.map((company) => ({
-            _id: company._id,
-            companyName: company.companyInfoData.companyName || "",
-            companyDetails: company.companyInfoData,
-            packages: company.Membership?.package?.map(pkg => ({
-                _id: pkg._id,
-                packageName: pkg.package_name || "",
-            })) || [],
-            orderReasons: company.Membership?.order_reason?.map(reason => ({
-                _id: reason._id,
-                orderReasonName: reason.order_reason_name || ""
-            })) || []
-        }));
+  try {
+    const companies = await User.find({
+      "Membership.planStatus": "Active"
+    });
 
-        res.status(200).json({
-            errorStatus: 0,
-            message: "All company details retrieved successfully",
-            data: formattedCompanies,
-        });
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error, please try again later",
-            error: error.message,
-        });
-    }
+    const formattedCompanies = companies.map((company) => ({
+      _id: company._id,
+      companyName: company.companyInfoData?.companyName || "",
+      companyDetails: company.companyInfoData || {},
+      packages: company.Membership?.package?.map(pkg => ({
+        _id: pkg._id,
+        packageName: pkg.package_name || "",
+      })) || [],
+      orderReasons: company.Membership?.order_reason?.map(reason => ({
+        _id: reason._id,
+        orderReasonName: reason.order_reason_name || ""
+      })) || []
+    }));
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "All company details retrieved successfully",
+      data: formattedCompanies,
+    });
+  } catch (error) {
+    console.error("getAllCompanyAllDetials error:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error, please try again later",
+      error: error.message,
+    });
+  }
 };
 
 function generateOrderReference() {
@@ -345,9 +346,6 @@ const newDriverSubmitOrder = async (req, res) => {
         });
     }
 };
-
-
-
 
 module.exports = {
     getAllCompanyAllDetials,

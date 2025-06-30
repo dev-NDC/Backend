@@ -1,13 +1,12 @@
-const User = require("../../database/schema")
+const User = require("../../database/UserSchema")
+
 
 const userData = async (req, res) => {
     try {
-        const id = req.user.userId;
+        const id = req.user.id;
         const data = await User.findById(id).select("-contactInfoData.password -_id");
-
         // Clone the user object to avoid modifying the Mongoose document
         const userObj = data.toObject();
-
         // Enrich each result with driver name and government_id
         userObj.results = userObj.results.map(result => {
             const driver = userObj.drivers.find(d => d._id.toString() === result.driverId?.toString());
@@ -34,7 +33,7 @@ const userData = async (req, res) => {
 
 const updateCompanyInformation = async (req, res) => {
     try {
-        const id = req.user.userId;
+        const id = req.user.id;
         const { ...companyInfoData } = req.body;
         if (!id) {
             return res.status(400).json({
@@ -67,7 +66,7 @@ const updateCompanyInformation = async (req, res) => {
 
 const updatePayment = async (req, res) => {
     try {
-        const id = req.user.userId;
+        const id = req.user.id;
         const { ...paymentData } = req.body;
         if (!id) {
             return res.status(400).json({

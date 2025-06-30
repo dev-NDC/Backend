@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const transporter = require("./Transpoter")
-const User = require("../../database/schema");
+const User = require("../../database/UserSchema");
 
 const createCustomPDF = async (userData, id) => {
     const email = userData.contactInfoData.email;

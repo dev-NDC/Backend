@@ -1,27 +1,37 @@
-const User = require("../../database/schema")
+const User = require("../../database/UserSchema");
+const Agency = require("../../database/AgencySchema");
+const Admin = require("../../database/AdminSchema");
+
 const transporter = require("./Transpoter")
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 
 const getCompanyList = async (req, res) => {
     try {
+        // Fetch all users and select only companyName field
         const users = await User.find(
-            { role: ["User"] },
+            {},
             "companyInfoData.companyName"
         );
 
+        // Filter out users without a company name
         const companies = users
             .filter(u => u.companyInfoData?.companyName)
             .map(u => ({
                 userId: u._id,
                 companyName: u.companyInfoData.companyName
             }));
+        
+        // Sort companies alphabetically by companyName
+        companies.sort((a, b) => a.companyName.localeCompare(b.companyName));
+
         res.status(200).json({
             errorStatus: 0,
             message: "Companies retrieved successfully",
             data: companies
         });
     } catch (error) {
+        console.error("getCompanyList error:", error);
         res.status(500).json({
             errorStatus: 1,
             message: "Failed to fetch companies",
@@ -33,17 +43,18 @@ const getCompanyList = async (req, res) => {
 
 const getAllAgencyData = async (req, res) => {
     try {
-        // Get all users that have 'agency' in their roles
-        const agencies = await User.find(
-            { role: ['Agency'] },
-            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName handledCompanies"
+        // Fetch all agencies with selected fields
+        const agencies = await Agency.find(
+            {},
+            "_id name email contactNumber agencyCode handledCompanies"
         );
 
-        // Format agency data and count handledCompanies
+        // Format response
         const formattedAgencies = agencies.map(agency => ({
-            agencyName: agency.companyInfoData?.companyName || "N/A",
-            agencyEmail: agency.companyInfoData?.companyEmail || "N/A",
-            agencyContactNumber: agency.companyInfoData?.contactNumber || "N/A",
+            agencyName: agency.name || "N/A",
+            agencyEmail: agency.email || "N/A",
+            agencyContactNumber: agency.contactNumber || "N/A",
+            agencyCode: agency.agencyCode || "N/A",
             numberOfCompanies: agency.handledCompanies?.length || 0,
             id: agency._id
         }));
@@ -55,6 +66,7 @@ const getAllAgencyData = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("getAllAgencyData error:", error);
         res.status(500).json({
             errorStatus: 1,
             message: "Server error, please try again later",
@@ -68,9 +80,9 @@ const getSingleAgencyData = async (req, res) => {
     try {
         const agencyId = req.body.id;
 
-        const agency = await User.findOne(
-            { _id: agencyId, role: { $in: ['Agency'] } },
-            "companyInfoData handledCompanies"
+        const agency = await Agency.findById(
+            agencyId,
+            "name email contactNumber agencyCode handledCompanies"
         );
 
         if (!agency) {
@@ -81,9 +93,10 @@ const getSingleAgencyData = async (req, res) => {
         }
 
         const response = {
-            agencyName: agency.companyInfoData?.companyName || "N/A",
-            agencyEmail: agency.companyInfoData?.companyEmail || "N/A",
-            agencyContactNumber: agency.companyInfoData?.contactNumber || "N/A",
+            agencyName: agency.name || "N/A",
+            agencyEmail: agency.email || "N/A",
+            agencyContactNumber: agency.contactNumber || "N/A",
+            agencyCode: agency.agencyCode || "N/A",
             numberOfCompanies: agency.handledCompanies?.length || 0,
             handledCompanies: agency.handledCompanies?.map(company => ({
                 userId: company._id,
@@ -91,7 +104,6 @@ const getSingleAgencyData = async (req, res) => {
             })),
             id: agency._id
         };
-
         res.status(200).json({
             errorStatus: 0,
             message: "Agency details fetched successfully",
@@ -99,6 +111,7 @@ const getSingleAgencyData = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("getSingleAgencyData error:", error);
         res.status(500).json({
             errorStatus: 1,
             message: "Server error, please try again later",
@@ -108,101 +121,99 @@ const getSingleAgencyData = async (req, res) => {
 };
 
 
-
 const updateAgencyData = async (req, res) => {
-    try {
-        const { data } = req.body;
-        const currentId = data._id
-        const agency = await User.findById(currentId);
+  try {
+    const { data } = req.body;
+    const currentId = data._id;
 
-        if (!agency) {
-            return res.status(404).json({
-                errorStatus: 1,
-                message: "Agency not found",
-            });
-        }
-        if (!agency.role.includes('Agency')) {
-            return res.status(400).json({
-                errorStatus: 1,
-                message: "Provided user does not have 'Agency' role",
-            });
-        }
+    // Find agency by ID in the Agency collection
+    const agency = await Agency.findById(currentId);
 
-        agency.companyInfoData.companyName = data.agencyName;
-        agency.companyInfoData.companyEmail = data.agencyEmail;
-        agency.companyInfoData.contactNumber = data.agencyContactNumber;
-
-
-        const handledUserIds = data.handledCompanies.map(c => c.userId);
-        console.log*("Handled User IDs:", handledUserIds);
-        const validUsers = await User.find({
-            _id: { $in: handledUserIds },
-            role: ['User'] // Ensures exactly ['User']
-        }).select('_id companyInfoData.companyName');
-
-
-        // Save as subdocuments with _id and name
-        agency.handledCompanies = validUsers.map(u => ({
-            _id: u._id,
-            name: u.companyInfoData?.companyName || 'Unnamed Company',
-        }));
-
-        await agency.save();
-
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Agency information saved successfully",
-        });
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Failed to save information",
-            error: error.message,
-        });
+    if (!agency) {
+      return res.status(404).json({
+        errorStatus: 1,
+        message: "Agency not found",
+      });
     }
-};
 
+    // Update agency fields
+    agency.name = data.agencyName;
+    agency.email = data.agencyEmail;
+    agency.contactNumber = data.agencyContactNumber;
+
+    // Validate handled companies (User collection)
+    const handledUserIds = data.handledCompanies.map(c => c.userId);
+
+    const validUsers = await User.find({
+      _id: { $in: handledUserIds }
+    }).select('_id companyInfoData.companyName');
+
+    // Store handled companies with _id and name
+    agency.handledCompanies = validUsers.map(u => ({
+      _id: u._id,
+      name: u.companyInfoData?.companyName || 'Unnamed Company',
+    }));
+
+    await agency.save();
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Agency information saved successfully",
+    });
+  } catch (error) {
+    console.error("updateAgencyData error:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Failed to save information",
+      error: error.message,
+    });
+  }
+};
 
 
 const createNewAgency = async (req, res) => {
     try {
         const { email, agencyName, contactNumber } = req.body;
 
-        // Check for existing agency
-        const existingUser = await User.findOne({ "contactInfoData.email": email });
-        if (existingUser) {
+        // Check if email exists in any collection
+        const [existingUser, existingAdmin, existingAgency] = await Promise.all([
+            User.findOne({ "contactInfoData.email": email }),
+            Admin.findOne({ email }),
+            Agency.findOne({ email }),
+        ]);
+
+        if (existingUser || existingAdmin || existingAgency) {
             return res.status(409).json({
                 errorStatus: 1,
-                message: "Agency with this email already exists.",
+                message: "User/Admin/Agency with this email already exists.",
             });
         }
 
-        // Generate random password
+        // Generate random password and hash it
         const randomPassword = crypto.randomBytes(8).toString("hex");
         const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
-        // Generate reset token and expiry (1 hour from now)
+        // Generate reset token and expiry
         const resetToken = crypto.randomBytes(20).toString("hex");
-        const resetTokenExpiry = Date.now() + 3600000;  // Token expires in 1 hour
+        const resetTokenExpiry = Date.now() + 3600000; // 1 hour
 
-        // Create new agency user
-        const newAgency = new User({
-            role: ["Agency"],
-            contactInfoData: {
-                email,
-                phone: contactNumber,  // Mapping contact number
-                password: hashedPassword,
-            },
-            companyInfoData: {
-                companyName: agencyName,       // Save agencyName
-                contactNumber: contactNumber,    // Save contactNumber
-                companyEmail: email,
-            },
-            resetToken,  // Save reset token
-            resetTokenExpiry,  // Save reset token expiry
+        // Generate unique agency code (3 letters + 4 random digits)
+        const cleanName = agencyName.replace(/[^A-Za-z]/g, "").toUpperCase();
+        const namePart = cleanName.slice(0, 3).padEnd(3, "X");
+        const digitPart = Array.from({ length: 4 }, () => Math.floor(Math.random() * 10)).join("");
+        const agencyCode = namePart + digitPart;
+
+        // Create and save new agency
+        const newAgency = new Agency({
+            name: agencyName,
+            email,
+            contactNumber,
+            password: hashedPassword,
+            resetToken,
+            resetTokenExpiry,
+            agencyCode,
         });
 
-        // Generate reset link
         const resetLink = `http://localhost:3000/resetPassword?token=${resetToken}&email=${email}`;
 
         // Send reset email
@@ -211,15 +222,15 @@ const createNewAgency = async (req, res) => {
             to: email,
             subject: "Set Your Password",
             html: `
-                <h3>Welcome to the Agency Portal</h3>
-                <p>You have been registered as an agency user.</p>
-                <p>Please set your password using the link below:</p>
-                <a href="${resetLink}">${resetLink}</a>
-                <p>This link will expire in 1 hour.</p>
-            `,
+        <h3>Welcome to the Agency Portal</h3>
+        <p>You have been registered as an agency user.</p>
+        <p>Your agency code: <strong>${agencyCode}</strong></p>
+        <p>Please set your password using the link below:</p>
+        <a href="${resetLink}">${resetLink}</a>
+        <p>This link will expire in 1 hour.</p>
+      `,
         });
 
-        // Save new agency to the database
         await newAgency.save();
 
         res.status(201).json({
@@ -227,6 +238,7 @@ const createNewAgency = async (req, res) => {
             message: "Agency created and reset email sent.",
         });
     } catch (error) {
+        console.error("createNewAgency error:", error);
         res.status(500).json({
             errorStatus: 1,
             message: "Server error while creating agency",
@@ -236,6 +248,32 @@ const createNewAgency = async (req, res) => {
 };
 
 
+const deleteAgency = async (req, res) => {
+    try {
+        const { id } = req.body.data;
+
+        const deletedAgency = await Agency.findByIdAndDelete(id);
+
+        if (!deletedAgency) {
+            return res.status(404).json({
+                errorStatus: 1,
+                message: "Agency not found",
+            });
+        }
+
+        res.status(200).json({
+            errorStatus: 0,
+            message: "Agency deleted successfully",
+        });
+    } catch (error) {
+        console.error("deleteAgency error:", error);
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Server error while deleting agency",
+            error: error.message,
+        });
+    }
+};
 
 
-module.exports = { getAllAgencyData, getSingleAgencyData, getCompanyList, updateAgencyData, createNewAgency };
+module.exports = { getAllAgencyData, getSingleAgencyData, getCompanyList, updateAgencyData, createNewAgency, deleteAgency };

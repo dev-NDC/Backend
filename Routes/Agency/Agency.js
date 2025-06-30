@@ -7,45 +7,49 @@ const upload = multer({ storage: storage });
 const {verifyAgency} = require("../../Controllers/Agency/ValidateAgency");
 const {getAllUserData,getSingleUserDetails,updateCompanyInformation,updatePaymentInformation } = require("../../Controllers/Agency/UserData")
 const {AddDriver, updateDriver, deleteDriver} = require("../../Controllers/Agency/Driver")
-const {authenticateAndAuthorize} = require("../../Middleware/authenticateAndAuthorize")
+const {agencyAuth} = require("../../Middleware/agencyAuth")
 
-const {Verification} = require("../../Middleware/verifyAgency")
+// routes for agency dashboard
+const {getCustomerAndAgencyCount, getUserCountsLast6Months, getMonthlyTestScheduleStats} = require("../../Controllers/agency/Dashboard")
+AgencyRoutes.get("/getCustomerAndAgencyCount",agencyAuth, getCustomerAndAgencyCount);
+AgencyRoutes.get("/getUserCountsLast6Months",agencyAuth, getUserCountsLast6Months);
+AgencyRoutes.get("/getMonthlyTestScheduleStats",agencyAuth, getMonthlyTestScheduleStats);
 
 
-AgencyRoutes.get("/verify", Verification(), verifyAgency);
-AgencyRoutes.get("/getAllUserData",authenticateAndAuthorize(["Agency"]) ,getAllUserData);
-AgencyRoutes.post("/getSingleUserDetails",authenticateAndAuthorize(["Agency"]) ,getSingleUserDetails);
-AgencyRoutes.post("/updateCompanyInformation",authenticateAndAuthorize(["Agency"]) ,updateCompanyInformation);
-AgencyRoutes.post("/updatePaymentInformation",authenticateAndAuthorize(["Agency"]) ,updatePaymentInformation);
-AgencyRoutes.post("/addDriver",authenticateAndAuthorize(["Agency"]) ,AddDriver);
-AgencyRoutes.post("/updateDriver",authenticateAndAuthorize(["Agency"]) ,updateDriver);
-AgencyRoutes.post("/deleteDriver",authenticateAndAuthorize(["Agency"]) ,deleteDriver);
+AgencyRoutes.get("/verify", agencyAuth, verifyAgency);
+AgencyRoutes.get("/getAllUserData", agencyAuth ,getAllUserData);
+AgencyRoutes.post("/getSingleUserDetails", agencyAuth ,getSingleUserDetails);
+AgencyRoutes.post("/updateCompanyInformation", agencyAuth ,updateCompanyInformation);
+AgencyRoutes.post("/updatePaymentInformation", agencyAuth ,updatePaymentInformation);
+AgencyRoutes.post("/addDriver", agencyAuth ,AddDriver);
+AgencyRoutes.post("/updateDriver", agencyAuth ,updateDriver);
+AgencyRoutes.post("/deleteDriver", agencyAuth ,deleteDriver);
 
 
 getAllUserData
 // routes for certificate 
 const {uploadCertificate,editCertificate,deleteCertificate} = require("../../Controllers/Agency/Certificate")
-AgencyRoutes.post("/uploadCertificate",authenticateAndAuthorize(["Agency"]),upload.single("file"),uploadCertificate);
-AgencyRoutes.post("/editCertificate",authenticateAndAuthorize(["Agency"]), editCertificate);
-AgencyRoutes.post("/deleteCertificate",authenticateAndAuthorize(["Agency"]), deleteCertificate);
+AgencyRoutes.post("/uploadCertificate", agencyAuth,upload.single("file"),uploadCertificate);
+AgencyRoutes.post("/editCertificate", agencyAuth, editCertificate);
+AgencyRoutes.post("/deleteCertificate", agencyAuth, deleteCertificate);
 
 // routes for invoice
 const {uploadInvoice,editInvoice,deleteInvoice} = require("../../Controllers/Agency/Invoice")
-AgencyRoutes.post("/uploadInvoice",authenticateAndAuthorize(["Agency"]),upload.single("file"),uploadInvoice);
-AgencyRoutes.post("/editInvoice",authenticateAndAuthorize(["Agency"]), editInvoice);
-AgencyRoutes.post("/deleteInvoice",authenticateAndAuthorize(["Agency"]), deleteInvoice);
+AgencyRoutes.post("/uploadInvoice", agencyAuth,upload.single("file"),uploadInvoice);
+AgencyRoutes.post("/editInvoice", agencyAuth, editInvoice);
+AgencyRoutes.post("/deleteInvoice", agencyAuth, deleteInvoice);
 
 // routes for results
 const {uploadResult, editResult, deleteResult} = require("../../Controllers/Agency/Result")
-AgencyRoutes.post("/uploadResult",authenticateAndAuthorize(["Agency"]),upload.single("file"),uploadResult);
-AgencyRoutes.post("/editResult",authenticateAndAuthorize(["Agency"]), editResult);
-AgencyRoutes.post("/deleteResult",authenticateAndAuthorize(["Agency"]), deleteResult);
+AgencyRoutes.post("/uploadResult", agencyAuth,upload.single("file"),uploadResult);
+AgencyRoutes.post("/editResult", agencyAuth, editResult);
+AgencyRoutes.post("/deleteResult", agencyAuth, deleteResult);
 
 // routes for create new order
 const {getAllCompanyAllDetials, getSiteInformation, newDriverSubmitOrder, handleNewPincode} = require("../../Controllers/Agency/CreateNewOrder")
-AgencyRoutes.get("/getAllCompanyAllDetials",authenticateAndAuthorize(["Agency"]), getAllCompanyAllDetials);
-AgencyRoutes.post("/getSiteInformation",authenticateAndAuthorize(["Agency"]), getSiteInformation);
-AgencyRoutes.post("/handleNewPincode",authenticateAndAuthorize(["Agency"]), handleNewPincode);
-AgencyRoutes.post("/newDriverSubmitOrder",authenticateAndAuthorize(["Agency"]), newDriverSubmitOrder);
+AgencyRoutes.get("/getAllCompanyAllDetials", agencyAuth, getAllCompanyAllDetials);
+AgencyRoutes.post("/getSiteInformation", agencyAuth, getSiteInformation);
+AgencyRoutes.post("/handleNewPincode", agencyAuth, handleNewPincode);
+AgencyRoutes.post("/newDriverSubmitOrder", agencyAuth, newDriverSubmitOrder);
 
 module.exports = AgencyRoutes;

@@ -1,4 +1,4 @@
-const User = require("../../database/schema");
+const User = require("../../database/UserSchema");
 
 
 // Get all result

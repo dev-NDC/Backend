@@ -1,15 +1,26 @@
-const User = require("../../database/schema");
+const User = require("../../database/UserSchema");
+const isCompanyHandledByAgency = require("./checkAgencyPermission");
+
 
 // Upload Invoice
 const uploadInvoice = async (req, res) => {
     try {
         const { currentId, invoiceNumber, amount, date, status } = req.body;
         const file = req.file;
-
+        const agencyId = req.user.id;
         if (!file) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "No file uploaded",
+            });
+        }
+
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(currentId, agencyId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
             });
         }
 
@@ -51,10 +62,20 @@ const uploadInvoice = async (req, res) => {
 const editInvoice = async (req, res) => {
     try {
         const { currentId, invoiceId, updatedData } = req.body;
+        const agencyId = req.user.id;
 
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
+        }
+
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(currentId, agencyId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
+            });
         }
 
         const invoice = user.invoices.id(invoiceId);
@@ -86,12 +107,21 @@ const editInvoice = async (req, res) => {
 const deleteInvoice = async (req, res) => {
     try {
         const { currentId, invoiceId } = req.body;
-
+        const agencyId = req.user.id;
+        
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
         }
 
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(currentId, agencyId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
+            });
+        }
         const invoiceIndex = user.invoices.findIndex(inv => inv._id.toString() === invoiceId);
         if (invoiceIndex === -1) {
             return res.status(404).json({ errorStatus: 1, message: "Invoice not found" });

@@ -1,30 +1,38 @@
-const User = require("../../database/schema"); // Import User model
+const User = require("../../database/UserSchema");
+const Agency = require("../../database/AgencySchema");
+const isCompanyHandledByAgency = require("./checkAgencyPermission");
 
 const getAllUserData = async (req, res) => {
     try {
-        const userId = req.user.userId;
-
-        // Get the current user (likely an agency) to access handledCompanies
-        const currentUser = await User.findById(userId);
-        if (!currentUser || !currentUser.handledCompanies) {
-            return res.status(403).json({
+        const agencyId = req.user.id;
+        // Fetch agency
+        const currentAgency = await Agency.findById(agencyId);
+        if (!currentAgency) {
+            return res.status(404).json({
                 errorStatus: 1,
-                message: "You do not have permission to access this data",
+                message: "Agency not found",
             });
         }
 
-        // Fetch only users whose _id is in handledCompanies
+        const handledCompanyIds = currentAgency.handledCompanies || [];
+        if (handledCompanyIds.length === 0) {
+            return res.status(200).json({
+                errorStatus: 0,
+                message: "No companies handled yet",
+                data: [],
+            });
+        }
+
         const users = await User.find(
-            { _id: { $in: currentUser.handledCompanies } },
-            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers"
+            { _id: { $in: handledCompanyIds } },
+            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers Membership"
         );
 
-        // Transform the data
         const formattedUsers = users.map(user => ({
             companyName: user.companyInfoData?.companyName || "N/A",
             companyEmail: user.companyInfoData?.companyEmail || "N/A",
             companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
-            activeDriversCount: user.drivers ? user.drivers.filter(driver => !driver.isDeleted && driver.isActive === true).length : 0,
+            activeDriversCount: user.drivers?.filter(d => !d.isDeleted && d.isActive)?.length || 0,
             status: user.Membership?.planStatus || "N/A",
             id: user._id
         }));
@@ -48,6 +56,7 @@ const getAllUserData = async (req, res) => {
 const getSingleUserDetails = async (req, res) => {
     try {
         const userId = req.body.id;
+        const agencyId = req.user.id;
 
         if (!userId) {
             return res.status(400).json({
@@ -56,9 +65,26 @@ const getSingleUserDetails = async (req, res) => {
             });
         }
 
+        // Fetch current agency
+        const agency = await Agency.findById(agencyId);
+        if (!agency) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Unauthorized access – agency not found",
+            });
+        }
+
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(userId, agencyId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
+            });
+        }
+
         // Fetch user details
         const user = await User.findById(userId).select("-contactInfoData.password");
-
         if (!user) {
             return res.status(404).json({
                 errorStatus: 1,
@@ -66,20 +92,18 @@ const getSingleUserDetails = async (req, res) => {
             });
         }
 
-        // Clone the user object to avoid modifying the Mongoose document
         const userObj = user.toObject();
 
-        // Enrich each result with driver name and government_id
+        // Enrich results with driver info
         userObj.results = userObj.results.map(result => {
             const driver = userObj.drivers.find(d => d._id.toString() === result.driverId?.toString());
-
             return {
                 ...result,
                 driverName: driver ? `${driver.first_name} ${driver.last_name}` : "Unknown",
                 licenseNumber: driver ? driver.government_id : "N/A",
             };
         });
-
+        console.log("User details retrieved successfully for user:", userObj);
         res.status(200).json({
             errorStatus: 0,
             message: "Data retrieved successfully",
@@ -97,15 +121,28 @@ const getSingleUserDetails = async (req, res) => {
 
 const updateCompanyInformation = async (req, res) => {
     try {
+        console.log("Updating company information");
         const id = req.body.currentId;
         const companyInfoData = req.body.data;
-
+        const agencyId = req.user.id;
         if (!id) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "User ID is required"
             });
         }
+
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(id, agencyId);
+        if (!hasAccess) {
+            console.log("Access denied for user:", id, "by agency:", agencyId);
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
+            });
+        }
+
+
         const updatedUser = await User.findByIdAndUpdate(
             id,
             { companyInfoData },
@@ -123,6 +160,8 @@ const updateCompanyInformation = async (req, res) => {
             companyInfoData: updatedUser.companyInfoData
         });
     } catch (error) {
+        console.error("Error updating company information:", error);
+        // Log the error for debugging purposes
         res.status(500).json({
             errorStatus: 1,
             error,
@@ -134,6 +173,7 @@ const updateCompanyInformation = async (req, res) => {
 const updatePaymentInformation = async (req, res) => {
     try {
         const id = req.body.currentId;
+        const agencyId = req.user.id;
         const paymentData = req.body.data;
 
         if (!id) {
@@ -142,6 +182,17 @@ const updatePaymentInformation = async (req, res) => {
                 message: "User ID is required"
             });
         }
+
+        // Check if the user belongs to handledCompanies
+        const hasAccess = await isCompanyHandledByAgency(id, agencyId);
+        if (!hasAccess) {
+            return res.status(403).json({
+                errorStatus: 1,
+                message: "Access denied. This company does not belong to you.",
+            });
+        }
+
+
         const updatedUser = await User.findByIdAndUpdate(
             id,
             { paymentData },

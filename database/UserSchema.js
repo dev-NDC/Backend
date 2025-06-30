@@ -1,8 +1,11 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
-const crypto = require("crypto");
 
-const { createNewOrderSchema, driverSchema, packageAndOrderSchema } = require("./moreSchema");
+const {
+  createNewOrderSchema,
+  driverSchema,
+  packageAndOrderSchema,
+} = require("./moreSchema");
 
 // Certificate schema
 const certificateSchema = new mongoose.Schema({
@@ -14,41 +17,23 @@ const certificateSchema = new mongoose.Schema({
   mimeType: String,
 }, { _id: true });
 
+// Random schema
 const randomSchema = new mongoose.Schema({
-  year: {
-    type: Number,
-    required: true,
-  },
+  year: { type: Number, required: true },
   quarter: {
     type: String,
     enum: ['Q1', 'Q2', 'Q3', 'Q4'],
     required: true,
   },
   company: {
-    _id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    name: {
-      type: String,
-      required: true,
-    }
+    _id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    name: { type: String, required: true }
   },
   driver: {
-    _id: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-    },
-    name: {
-      type: String,
-      required: true,
-    }
+    _id: { type: mongoose.Schema.Types.ObjectId, required: true },
+    name: { type: String, required: true }
   },
-  testType: {
-    type: String,
-    required: true,
-  },
+  testType: { type: String, required: true },
   status: {
     type: String,
     enum: ['Pending', 'Completed', 'Scheduled'],
@@ -56,7 +41,7 @@ const randomSchema = new mongoose.Schema({
   }
 }, { _id: true });
 
-//document schema
+// Document schema
 const documentSchema = new mongoose.Schema({
   description: String,
   date: Date,
@@ -70,7 +55,11 @@ const invoiceSchema = new mongoose.Schema({
   invoiceNumber: String,
   amount: Number,
   date: Date,
-  status: { type: String, enum: ['Paid', 'Unpaid', 'Pending'], default: 'Pending' },
+  status: {
+    type: String,
+    enum: ['Paid', 'Unpaid', 'Pending'],
+    default: 'Pending'
+  },
   file: Buffer,
   filename: String,
   mimeType: String,
@@ -78,19 +67,17 @@ const invoiceSchema = new mongoose.Schema({
 
 // Result schema
 const resultSchema = new mongoose.Schema({
-  driverId: {
-    type: mongoose.Schema.Types.ObjectId,
-  },
-
+  driverId: { type: mongoose.Schema.Types.ObjectId },
   caseNumber: String,
   date: Date,
   testType: String,
-  status: { type: String},
+  status: String,
   file: Buffer,
   filename: String,
   mimeType: String,
 }, { _id: true });
 
+// Membership schema
 const MembershipSchema = new mongoose.Schema({
   price: Number,
   planName: String,
@@ -104,48 +91,14 @@ const MembershipSchema = new mongoose.Schema({
     enum: ['Active', 'Inactive', 'Pending'],
     default: 'Pending',
   },
-
-  // Add this for storing selected packages
-  package: [{
-    package_name: String,
-  }],
-
-  // Add this for storing selected order reasons
-  order_reason: [{
-    order_reason_name: String,
-  }],
+  package: [{ package_name: String }],
+  order_reason: [{ order_reason_name: String }],
 }, { _id: true });
 
-
-// Main User schema
+// =======================
+// Main User Schema
+// =======================
 const userSchema = new mongoose.Schema({
-  // Support for multiple roles
-  role: {
-    type: [String],
-    enum: ['User', 'Admin', 'Agency'],
-    default: ['User']
-  },
-
-  isSuperAdmin: {
-    type: Boolean,
-    default: false
-  },
-
-  // For agency users only: list of user IDs they manage
-  handledCompanies: [
-    {
-      _id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-      },
-      name: {
-        type: String,
-        required: true
-      }
-    }
-  ],
-
   // Personal info
   contactInfoData: {
     firstName: String,
@@ -155,7 +108,7 @@ const userSchema = new mongoose.Schema({
     password: String,
   },
 
-  // Company info (optional for agency/admin/user)
+  // Company info
   companyInfoData: {
     companyName: String,
     usdot: String,
@@ -168,7 +121,7 @@ const userSchema = new mongoose.Schema({
     city: String,
     state: String,
     zip: String,
-    driverCount:String,
+    driverCount: String,
   },
 
   // Payment info
@@ -181,7 +134,11 @@ const userSchema = new mongoose.Schema({
     accountNumber: String,
     routingNumber: String,
     accountName: String,
-    accountType: { type: String, enum: ['Checking', 'Saving', 'Consumer', 'Business'], default: 'Saving' },
+    accountType: {
+      type: String,
+      enum: ['Checking', 'Saving', 'Consumer', 'Business'],
+      default: 'Saving'
+    },
   },
 
   // Form submission
@@ -193,12 +150,17 @@ const userSchema = new mongoose.Schema({
     agree: Boolean,
   },
 
-  // Drivers managed by this user
+  
+  // admin notes for users
+  notes: [{
+    text: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now }
+  }],
+
+  // Related entities
   drivers: [driverSchema],
   order: [createNewOrderSchema],
   packageAndOrder: packageAndOrderSchema,
-
-  // Related documents
   results: [resultSchema],
   invoices: [invoiceSchema],
   certificates: [certificateSchema],
@@ -206,13 +168,14 @@ const userSchema = new mongoose.Schema({
   Membership: MembershipSchema,
   randoms: [randomSchema],
 
-  // Reset token fields
+  // Password reset
   resetToken: String,
   resetTokenExpiry: Date,
-
 }, { timestamps: true });
 
-// Hash password before saving
+// =======================
+// Password Hash Middleware
+// =======================
 userSchema.pre("save", async function (next) {
   if (!this.isModified("contactInfoData.password")) return next();
   const salt = await bcrypt.genSalt(10);
@@ -220,6 +183,4 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-const User = mongoose.model("User", userSchema);
-
-module.exports = User;
+module.exports = mongoose.model("User", userSchema);

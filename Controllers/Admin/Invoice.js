@@ -1,4 +1,4 @@
-const User = require("../../database/schema");
+const User = require("../../database/UserSchema");
 
 // Upload Invoice
 const uploadInvoice = async (req, res) => {

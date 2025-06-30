@@ -1,23 +1,39 @@
-const User = require("../../database/schema")
-
+const User = require("../../database/UserSchema");
+const Agency = require("../../database/AgencySchema");
 
 const exportAgency = async (req, res) => {
     try {
-        const agencies = await User.find({ role: "Agency" });
+        const agencies = await Agency.find({}, "name handledCompanies createdAt");
 
-        const exportData = agencies.map((agency) => {
-            const companyNameList = agency.handledCompanies
-                .map((company) => company.name)  // Access embedded `name`
-                .filter(Boolean)
-                .join(", ");
+        const exportData = await Promise.all(
+            agencies.map(async (agency) => {
+                const handledCompanyIds = agency.handledCompanies?.map(c => c._id) || [];
 
-            return {
-                agencyName: agency.companyInfoData?.companyName || "N/A",
-                companyName: companyNameList || "N/A",
-                enrollmentDate: agency.createdAt.toISOString().split("T")[0],
-                totalDrivers: agency.drivers?.length || 0,
-            };
-        });
+                // Fetch full user documents with all driver data
+                const companies = await User.find({ _id: { $in: handledCompanyIds } });
+
+                // Sum all active, non-deleted drivers across all companies
+                let totalDrivers = 0;
+                for (const company of companies) {
+                    const validDrivers = company.drivers?.filter(driver =>
+                        driver && driver.isActive === true && driver.isDeleted === false
+                    ) || [];
+                    totalDrivers += validDrivers.length;
+                }
+
+                const companyNameList = agency.handledCompanies
+                    .map(company => company.name)
+                    .filter(Boolean)
+                    .join(", ");
+
+                return {
+                    agencyName: agency.name || "N/A",
+                    companyName: companyNameList || "N/A",
+                    enrollmentDate: agency.createdAt.toISOString().split("T")[0],
+                    totalDrivers
+                };
+            })
+        );
 
         res.status(200).json({
             errorStatus: 0,
@@ -25,6 +41,7 @@ const exportAgency = async (req, res) => {
             data: exportData,
         });
     } catch (error) {
+        console.error("exportAgency error:", error);
         res.status(500).json({
             errorStatus: 1,
             message: "Server error while exporting agency data",
@@ -32,7 +49,6 @@ const exportAgency = async (req, res) => {
         });
     }
 };
-
 
 
 const exportDriver = async (req, res) => {
