@@ -10,7 +10,7 @@ const {AddDriver, updateDriver, deleteDriver} = require("../../Controllers/Agenc
 const {agencyAuth} = require("../../Middleware/agencyAuth")
 
 // routes for agency dashboard
-const {getCustomerAndAgencyCount, getUserCountsLast6Months, getMonthlyTestScheduleStats} = require("../../Controllers/agency/Dashboard")
+const {getCustomerAndAgencyCount, getUserCountsLast6Months, getMonthlyTestScheduleStats} = require("../../Controllers/Agency/Dashboard")
 AgencyRoutes.get("/getCustomerAndAgencyCount",agencyAuth, getCustomerAndAgencyCount);
 AgencyRoutes.get("/getUserCountsLast6Months",agencyAuth, getUserCountsLast6Months);
 AgencyRoutes.get("/getMonthlyTestScheduleStats",agencyAuth, getMonthlyTestScheduleStats);
@@ -52,5 +52,16 @@ AgencyRoutes.get("/getAllCompanyAllDetials", agencyAuth, getAllCompanyAllDetials
 AgencyRoutes.post("/getSiteInformation", agencyAuth, getSiteInformation);
 AgencyRoutes.post("/handleNewPincode", agencyAuth, handleNewPincode);
 AgencyRoutes.post("/newDriverSubmitOrder", agencyAuth, newDriverSubmitOrder);
+
+
+
+// routes for Random
+const {addRandomDriver, fetchRandomDriver, fetchRandomData, deleteRandomEntry, updateRandomStatus} = require("../../Controllers/Agency/Random")
+AgencyRoutes.post("/addRandomDriver",agencyAuth ,addRandomDriver);
+AgencyRoutes.get("/fetchRandomDriver",agencyAuth ,fetchRandomDriver);
+AgencyRoutes.get("/fetchRandomData",agencyAuth ,fetchRandomData);
+AgencyRoutes.post("/deleteRandomDriver",agencyAuth ,deleteRandomEntry);
+AgencyRoutes.post("/updateRandomStatus",agencyAuth ,updateRandomStatus);
+
 
 module.exports = AgencyRoutes;

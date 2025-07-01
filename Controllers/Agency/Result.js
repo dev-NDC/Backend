@@ -1,22 +1,39 @@
 const User = require("../../database/UserSchema");
+const Agency = require("../../database/AgencySchema")
 const isCompanyHandledByAgency = require("./checkAgencyPermission");
 
 
 // Get all result
 const getAllResult = async (req, res) => {
     try {
-        // Fetch all users with results and drivers
-        const users = await User.find({ "results.0": { $exists: true } }).select(
-            "companyInfoData.companyName results drivers"
-        );
+        console.log("fetching all result")
+        const  agencyId  = req.user.id;
+
+        // Step 1: Get agency and validate
+        const agency = await Agency.findById(agencyId);
+        if (!agency) {
+            return res.status(404).json({
+                errorStatus: 1,
+                message: "Agency not found",
+            });
+        }
+
+        // Step 2: Extract company IDs
+        const handledCompanyIds = agency.handledCompanies.map(c => c._id);
+
+        // Step 3: Get users (companies) with results that are handled by this agency
+        const users = await User.find({
+            _id: { $in: handledCompanyIds },
+            "results.0": { $exists: true }
+        }).select("companyInfoData.companyName results drivers");
 
         const allResults = [];
 
+        // Step 4: Aggregate results
         for (const user of users) {
             const companyName = user.companyInfoData?.companyName || "Unknown Company";
 
             for (const result of user.results) {
-                // Find the corresponding driver
                 const driver = user.drivers.find(d => d._id.toString() === result.driverId?.toString());
 
                 const driverName = driver ? `${driver.first_name} ${driver.last_name}` : "Unknown Driver";
@@ -37,7 +54,7 @@ const getAllResult = async (req, res) => {
             }
         }
 
-        // Sort by test date, newest first
+        // Step 5: Sort by test date
         allResults.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
 
         res.status(200).json({
