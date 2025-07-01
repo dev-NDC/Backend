@@ -3,7 +3,6 @@ const User = require("../../database/UserSchema");
 // Upload Certificate
 const uploadCertificate = async (req, res) => {
     try {
-        console.log("File upload request received");
         const { currentId, description, issueDate, expirationDate } = req.body;
         const file = req.file;
 

@@ -105,8 +105,6 @@ const getSiteInformation = async (req, res) => {
             "report message": ""
         }
 
-        console.log(payloadForCreate)
-
         const response = await axios.post(
             'https://demo.i3screen.net/api/scheduling/create',
             payloadForCreate,
@@ -223,7 +221,6 @@ const getSiteInformation = async (req, res) => {
 };
 
 const handleNewPincode = async (req, res) => {
-    console.log(req.body)
     try {
         const payloadForSites = {
             "case_number": req.body.caseNumber,

@@ -139,7 +139,6 @@ const editResult = async (req, res) => {
             message: "Result updated successfully",
         });
     } catch (error) {
-        console.log(error);
         res.status(500).json({
             errorStatus: 1,
             message: "Server error while editing result",

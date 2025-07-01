@@ -7,57 +7,54 @@ const password = process.env.PASSWORD;
 
 
 const getAllCompanyAllDetials = async (req, res) => {
-    try {
-        const { userId } = req.user;
+  try {
+    const agencyId = req.user.id; // From JWT middleware or similar
 
-        // 1. Fetch the agency user making the request
-        const agencyUser = await User.findById(userId);
-
-        if (!agencyUser || !agencyUser.role.includes("Agency")) {
-            return res.status(403).json({
-                errorStatus: 1,
-                message: "Unauthorized access: Only agencies can access this endpoint.",
-            });
-        }
-
-        // 2. Extract handled company IDs from agency user
-        const handledCompanyIds = agencyUser.handledCompanies.map(company => company._id);
-
-        // 3. Fetch only those users with role 'User' and whose _id is in handledCompanyIds
-        const companies = await User.find({
-            _id: { $in: handledCompanyIds },
-            role: { $in: ["User"] }
-        });
-
-        // 4. Format the output
-        const formattedCompanies = companies.map((company) => ({
-            _id: company._id,
-            companyName: company.companyInfoData.companyName || "",
-            companyDetails: company.companyInfoData,
-            packages: company.Membership?.package?.map(pkg => ({
-                _id: pkg._id,
-                packageName: pkg.package_name || "",
-            })) || [],
-            orderReasons: company.Membership?.order_reason?.map(reason => ({
-                _id: reason._id,
-                orderReasonName: reason.order_reason_name || ""
-            })) || []
-        }));
-
-        // 5. Respond with the filtered companies
-        return res.status(200).json({
-            errorStatus: 0,
-            message: "Handled company details retrieved successfully",
-            data: formattedCompanies,
-        });
-
-    } catch (error) {
-        return res.status(500).json({
-            errorStatus: 1,
-            message: "Server error, please try again later",
-            error: error.message,
-        });
+    // 1. Fetch the agency from the Agency model
+    const agency = await Agency.findById(agencyId);
+    if (!agency) {
+      return res.status(403).json({
+        errorStatus: 1,
+        message: "Unauthorized access: Only agencies can access this endpoint.",
+      });
     }
+
+    // 2. Extract handled company IDs
+    const handledCompanyIds = agency.handledCompanies.map(company => company._id);
+
+    // 3. Fetch users with those IDs and role: User
+    const companies = await User.find({
+      _id: { $in: handledCompanyIds },
+    });
+
+    // 4. Format response data
+    const formattedCompanies = companies.map((company) => ({
+      _id: company._id,
+      companyName: company.companyInfoData.companyName || "",
+      companyDetails: company.companyInfoData,
+      packages: company.Membership?.package?.map(pkg => ({
+        _id: pkg._id,
+        packageName: pkg.package_name || "",
+      })) || [],
+      orderReasons: company.Membership?.order_reason?.map(reason => ({
+        _id: reason._id,
+        orderReasonName: reason.order_reason_name || "",
+      })) || [],
+    }));
+
+    return res.status(200).json({
+      errorStatus: 0,
+      message: "Handled company details retrieved successfully",
+      data: formattedCompanies,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      errorStatus: 1,
+      message: "Server error, please try again later",
+      error: error.message,
+    });
+  }
 };
 
 
@@ -223,7 +220,6 @@ const getSiteInformation = async (req, res) => {
         }
 
     } catch (error) {
-        console.log(error)
         res.status(500).json({
             errorStatus: 1,
             message: "Server error, please try again later",
@@ -233,7 +229,6 @@ const getSiteInformation = async (req, res) => {
 };
 
 const handleNewPincode = async (req, res) => {
-    console.log(req.body)
     try {
         const payloadForSites = {
             "case_number": req.body.caseNumber,

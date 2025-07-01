@@ -5,7 +5,6 @@ const isCompanyHandledByAgency = require("./checkAgencyPermission");
 // Upload Certificate
 const uploadCertificate = async (req, res) => {
     try {
-        console.log("File upload request received");
         const { currentId, description, issueDate, expirationDate } = req.body;
         const agencyId = req.user.id;
         const file = req.file;

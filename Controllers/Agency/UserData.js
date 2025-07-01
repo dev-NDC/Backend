@@ -103,7 +103,6 @@ const getSingleUserDetails = async (req, res) => {
                 licenseNumber: driver ? driver.government_id : "N/A",
             };
         });
-        console.log("User details retrieved successfully for user:", userObj);
         res.status(200).json({
             errorStatus: 0,
             message: "Data retrieved successfully",
@@ -121,7 +120,6 @@ const getSingleUserDetails = async (req, res) => {
 
 const updateCompanyInformation = async (req, res) => {
     try {
-        console.log("Updating company information");
         const id = req.body.currentId;
         const companyInfoData = req.body.data;
         const agencyId = req.user.id;
@@ -135,7 +133,6 @@ const updateCompanyInformation = async (req, res) => {
         // Check if the user belongs to handledCompanies
         const hasAccess = await isCompanyHandledByAgency(id, agencyId);
         if (!hasAccess) {
-            console.log("Access denied for user:", id, "by agency:", agencyId);
             return res.status(403).json({
                 errorStatus: 1,
                 message: "Access denied. This company does not belong to you.",
