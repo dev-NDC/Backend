@@ -13,7 +13,13 @@ require("./database/db");
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(bodyParser.text({ type: 'text/xml' }));
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow all origins for now (but required when credentials are true)
+    callback(null, origin);
+  },
+  credentials: true
+}));
 
 // Serve static files from EmailTempletes folder
 app.use("/email-assets", express.static(path.join(__dirname, "Controllers", "User", "EmailTempletes")));
@@ -42,7 +48,7 @@ app.use("/api/agency", AgencyRoutes);
 
 // random routes
 const RandomRoutes = require("./Routes/Random/Random")
-app.use("/api/random",RandomRoutes)
+app.use("/api/random", RandomRoutes)
 
 
 // I3Screen Routes

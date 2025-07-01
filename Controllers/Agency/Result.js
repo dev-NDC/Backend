@@ -2,6 +2,59 @@ const User = require("../../database/UserSchema");
 const isCompanyHandledByAgency = require("./checkAgencyPermission");
 
 
+// Get all result
+const getAllResult = async (req, res) => {
+    try {
+        // Fetch all users with results and drivers
+        const users = await User.find({ "results.0": { $exists: true } }).select(
+            "companyInfoData.companyName results drivers"
+        );
+
+        const allResults = [];
+
+        for (const user of users) {
+            const companyName = user.companyInfoData?.companyName || "Unknown Company";
+
+            for (const result of user.results) {
+                // Find the corresponding driver
+                const driver = user.drivers.find(d => d._id.toString() === result.driverId?.toString());
+
+                const driverName = driver ? `${driver.first_name} ${driver.last_name}` : "Unknown Driver";
+                const licenseNumber = driver?.government_id || "N/A";
+
+                allResults.push({
+                    companyName,
+                    driverName,
+                    licenseNumber,
+                    testDate: result.date,
+                    testType: result.testType,
+                    status: result.status,
+                    caseNumber: result.caseNumber,
+                    resultImage: result.file
+                        ? `data:${result.mimeType};base64,${result.file.toString("base64")}`
+                        : null
+                });
+            }
+        }
+
+        // Sort by test date, newest first
+        allResults.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
+
+        res.status(200).json({
+            errorStatus: 0,
+            message: "Results fetched successfully",
+            data: allResults,
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Server error while fetching results",
+            error: error.message,
+        });
+    }
+};
+
 // Upload Result
 const uploadResult = async (req, res) => {
     try {
@@ -106,7 +159,7 @@ const deleteResult = async (req, res) => {
     try {
         const { currentId, resultId } = req.body;
         const agencyId = req.user.id;
-        
+
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
@@ -143,4 +196,4 @@ const deleteResult = async (req, res) => {
     }
 };
 
-module.exports = { uploadResult, editResult, deleteResult };
+module.exports = { getAllResult, uploadResult, editResult, deleteResult };
