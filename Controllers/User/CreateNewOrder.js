@@ -1,17 +1,18 @@
-const User = require("../../database/UserSchema")
+const User = require("../../database/User");
+const Driver = require("../../database/Driver");
+const Result = require("../../database/Result");
 const axios = require('axios');
 const crypto = require("crypto");
 require('dotenv').config();
 const username = process.env.USERID;
 const password = process.env.PASSWORD;
 
+
 const getAllCompanyAllDetials = async (req, res) => {
     try {
-        const userID = req.user.userId;
-
+        const userID = req.user.id;
         const company = await User.findOne({
             _id: userID,
-            role: ["User"],
             "Membership.planStatus": "Active"
         });
 
@@ -36,7 +37,6 @@ const getAllCompanyAllDetials = async (req, res) => {
                 orderReasonName: reason.order_reason_name || ""
             })) || []
         };
-
         res.status(200).json({
             errorStatus: 0,
             message: "Company details retrieved successfully",
@@ -73,14 +73,14 @@ const getSiteInformation = async (req, res) => {
         const user = await User.findById(companyId);
         const orgId = user.Membership?.orgId;
         const location_code = user.Membership?.locationCode;
-        const package_code = packageId
-        const order_reason = orderReasonId
+        const package_code = packageId;
+        const order_reason = orderReasonId;
         let expiration_date_time = formData.orderExpires;
         let formattedExpiration = formatDateTime(expiration_date_time);
         const referenceNumber = generateOrderReference();
         let allEmails = formData.email;
 
-        if (formData.ccEmail.trim() !== "") {
+        if (formData.ccEmail && formData.ccEmail.trim() !== "") {
             allEmails += ";" + formData.ccEmail.trim();
         }
         const payloadForCreate = {
@@ -103,19 +103,14 @@ const getSiteInformation = async (req, res) => {
             "participant_postal_code": formData.zip,
             "participant_region": formData.state,
             "report message": ""
-        }
+        };
 
         const response = await axios.post(
             'https://demo.i3screen.net/api/scheduling/create',
             payloadForCreate,
             {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                auth: {
-                    username,
-                    password
-                }
+                headers: { 'Content-Type': 'application/json' },
+                auth: { username, password }
             }
         );
         const success = response.data.success;
@@ -123,60 +118,46 @@ const getSiteInformation = async (req, res) => {
         const scheduling_url = response.data.case_data.scheduling_url;
 
         if (formData.sendLink === true) {
-            // Create new driver object
-            const newDriver = {
-                government_id: req.body.formData.ssn,
-                first_name: req.body.formData.firstName,
-                last_name: req.body.formData.lastName,
-                phone: req.body.formData.phone1,
-                email: req.body.formData.email,
-                postal_code: req.body.formData.zip,
-                region: req.body.formData.state,
-                municipality: req.body.formData.city,
-                address: req.body.formData.address,
-                dob: req.body.formData.dob,
+            // CREATE new driver document
+            const newDriver = new Driver({
+                user: companyId,
+                government_id: formData.ssn,
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+                phone: formData.phone1,
+                email: formData.email,
+                postal_code: formData.zip,
+                region: formData.state,
+                municipality: formData.city,
+                address: formData.address,
+                dob: formData.dob,
                 isActive: false,
                 creationDate: new Date().toISOString(),
-                createdBy: req.body.createdBy || "Admin", // optional fallback
-            };
+                createdBy: req.body.createdBy || "Admin",
+            });
+            await newDriver.save();
 
-            // Add the driver to the company
-            const user = await User.findById(companyId);
-            if (!user) {
-                return res.status(404).json({
-                    errorStatus: 1,
-                    message: "Company user not found",
-                });
-            }
-            user.drivers.push(newDriver);
-            await user.save();
-
-
-            // Get the new driver's _id (last element in array)
-            const addedDriver = user.drivers[user.drivers.length - 1];
-
-            const orderReasonName = orderReasonId;
-
-            const resultToPush = {
-                driverId: addedDriver._id,
+            // CREATE new result document
+            const resultToPush = new Result({
+                user: companyId,
+                driverId: newDriver._id,
                 caseNumber: caseNumber,
                 date: new Date(),
-                testType: orderReasonName,
+                testType: orderReasonId,
                 status: "Pending",
                 file: null,
                 filename: "",
                 mimeType: ""
-            };
+            });
+            await resultToPush.save();
 
-            // Push the result into user's results array
-            user.results.push(resultToPush);
-            await user.save();
             res.status(200).json({
                 errorStatus: 0,
                 message: "Case has been scheduled and Scheduling URL sent successfully",
-                driverId: addedDriver._id,
+                driverId: newDriver._id,
             });
         } else {
+            // Just fetch sites
             const payloadForSites = {
                 "case_number": caseNumber,
                 "search_radius": "100",
@@ -186,22 +167,16 @@ const getSiteInformation = async (req, res) => {
                 "province": "",
                 "country": "US",
                 "show_price": "0"
-            }
+            };
             const siteResponse = await axios.post(
                 'https://demo.i3screen.net/api/scheduling/sitesv2',
                 payloadForSites,
                 {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    auth: {
-                        username,
-                        password
-                    }
+                    headers: { 'Content-Type': 'application/json' },
+                    auth: { username, password }
                 }
             );
             const siteData = siteResponse.data;
-            const siteSuccess = siteData.success;
             let sites = siteData.sites;
             res.status(200).json({
                 errorStatus: 0,
@@ -219,6 +194,7 @@ const getSiteInformation = async (req, res) => {
         });
     }
 };
+
 
 const handleNewPincode = async (req, res) => {
     try {
@@ -269,9 +245,6 @@ const newDriverSubmitOrder = async (req, res) => {
             collection_site_link_id: req.body.finlSelectedSite.collection_site_link_id,
         };
 
-        const username = process.env.USERID;
-        const password = process.env.PASSWORD;
-
         const response = await axios.post(
             "https://demo.i3screen.net/api/scheduling/schedule",
             payloadForCreate,
@@ -283,8 +256,9 @@ const newDriverSubmitOrder = async (req, res) => {
 
         const { companyId, orderReasonId } = req.body;
 
-        // Create new driver object
-        const newDriver = {
+        // CREATE new driver document
+        const newDriver = new Driver({
+            user: companyId,
             government_id: req.body.formData.ssn,
             first_name: req.body.formData.firstName,
             last_name: req.body.formData.lastName,
@@ -297,44 +271,28 @@ const newDriverSubmitOrder = async (req, res) => {
             dob: req.body.formData.dob,
             isActive: false,
             creationDate: new Date().toISOString(),
-            createdBy: req.body.createdBy || "Admin", // optional fallback
-        };
+            createdBy: req.body.createdBy || "Admin",
+        });
+        await newDriver.save();
 
-        // Add the driver to the company
-        const user = await User.findById(companyId);
-        if (!user) {
-            return res.status(404).json({
-                errorStatus: 1,
-                message: "Company user not found",
-            });
-        }
-        user.drivers.push(newDriver);
-        await user.save();
-
-
-        // Get the new driver's _id (last element in array)
-        const addedDriver = user.drivers[user.drivers.length - 1];
-
-        const orderReasonName = orderReasonId;
-
-        const resultToPush = {
-            driverId: addedDriver._id,
+        // CREATE new result document
+        const resultToPush = new Result({
+            user: companyId,
+            driverId: newDriver._id,
             caseNumber: req.body.caseNumber,
             date: new Date(),
-            testType: orderReasonName,
+            testType: orderReasonId,
             status: "Pending",
             file: null,
             filename: "",
             mimeType: ""
-        };
+        });
+        await resultToPush.save();
 
-        // Push the result into user's results array
-        user.results.push(resultToPush);
-        await user.save();
         res.status(200).json({
             errorStatus: 0,
             message: "Case has been scheduled",
-            driverId: addedDriver._id,
+            driverId: newDriver._id,
         });
     } catch (error) {
         const status = error.response?.status;
@@ -345,13 +303,13 @@ const newDriverSubmitOrder = async (req, res) => {
             });
         }
 
-        console.error(error);
         res.status(500).json({
             errorStatus: 1,
             message: "Server error, please try again later",
         });
     }
 };
+
 
 
 

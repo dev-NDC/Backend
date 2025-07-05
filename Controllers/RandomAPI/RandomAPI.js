@@ -3,8 +3,6 @@ const Visitor = require("../../database/Visitor");
 
 const getValueFromUSDOT = async (req, res) => {
     try {
-        console.log("requesting from here....")
-        console.log(req.body)
         const { dot_number } = req.body;
         if (!dot_number) {
             return res.status(400).json({ error: "dot_number is required" });
@@ -13,7 +11,6 @@ const getValueFromUSDOT = async (req, res) => {
             `https://data.transportation.gov/resource/az4n-8mr2.json?dot_number=${dot_number}`
         );
         const data = response.data[0];
-        console.log(data)
         res.status(200).json({
             data
         });

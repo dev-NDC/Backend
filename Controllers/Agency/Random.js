@@ -1,5 +1,6 @@
-const User = require("../../database/UserSchema");
-
+const User = require("../../database/User");
+const Random = require("../../database/Random");
+const Driver = require("../../database/Driver");
 
 const fetchRandomDriver = async (req, res) => {
   try {
@@ -112,35 +113,47 @@ const addRandomDriver = async (req, res) => {
 
 const fetchRandomData = async (req, res) => {
     try {
-        // Find all users (companies) that have randoms
-        const usersWithRandoms = await User.find(
-            { "randoms.0": { $exists: true } }, // only users with at least one random entry
-            { randoms: 1 } // return only the randoms field
-        );
+        // 1. Fetch all Random entries
+        const allRandoms = await Random.find();
 
-        // Flatten and combine all randoms into one array
-        const allRandoms = usersWithRandoms.flatMap(user =>
-            user.randoms.map(entry => ({
-                _id: entry._id, // Include the unique identifier of the random entry
-                company: {
-                    _id: entry.company._id,
-                    name: entry.company.name
-                },
-                driver: {
-                    _id: entry.driver._id,
-                    name: entry.driver.name
-                },
-                year: entry.year,
-                quarter: entry.quarter,
-                testType: entry.testType,
-                status: entry.status // assuming status is a field in the random entry
-            }))
-        );
+        // 2. Gather unique company and driver IDs
+        const companyIds = [...new Set(allRandoms.map(r => r.company._id.toString()))];
+        const driverIds = [...new Set(allRandoms.map(r => r.driver._id.toString()))];
+
+        // 3. Fetch company and driver info in bulk
+        const [companies, drivers] = await Promise.all([
+            User.find({ _id: { $in: companyIds } }).select("companyInfoData.companyName"),
+            Driver.find({ _id: { $in: driverIds } }).select("first_name last_name")
+        ]);
+
+        // 4. Build lookup maps
+        const companyMap = {};
+        companies.forEach(c => companyMap[c._id.toString()] = c.companyInfoData.companyName);
+
+        const driverMap = {};
+        drivers.forEach(d => driverMap[d._id.toString()] = `${d.first_name} ${d.last_name}`);
+
+        // 5. Format the result
+        const data = allRandoms.map(entry => ({
+            _id: entry._id,
+            company: {
+                _id: entry.company._id,
+                name: companyMap[entry.company._id.toString()] || "Unknown"
+            },
+            driver: {
+                _id: entry.driver._id,
+                name: driverMap[entry.driver._id.toString()] || "Unknown"
+            },
+            year: entry.year,
+            quarter: entry.quarter,
+            testType: entry.testType,
+            status: entry.status
+        }));
 
         return res.status(200).json({
             errorStatus: 0,
             message: "Random driver data fetched successfully",
-            data: allRandoms
+            data
         });
 
     } catch (error) {

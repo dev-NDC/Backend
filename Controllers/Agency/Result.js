@@ -1,13 +1,14 @@
-const User = require("../../database/UserSchema");
-const Agency = require("../../database/AgencySchema")
+const User = require("../../database/User");
+const Agency = require("../../database/Agency");
+const Driver = require("../../database/Driver");
+const Result = require("../../database/Result");
 const isCompanyHandledByAgency = require("./checkAgencyPermission");
 
 
 // Get all result
 const getAllResult = async (req, res) => {
     try {
-        console.log("fetching all result")
-        const  agencyId  = req.user.id;
+        const agencyId = req.user.id;
 
         // Step 1: Get agency and validate
         const agency = await Agency.findById(agencyId);
@@ -21,40 +22,45 @@ const getAllResult = async (req, res) => {
         // Step 2: Extract company IDs
         const handledCompanyIds = agency.handledCompanies.map(c => c._id);
 
-        // Step 3: Get users (companies) with results that are handled by this agency
-        const users = await User.find({
-            _id: { $in: handledCompanyIds },
-            "results.0": { $exists: true }
-        }).select("companyInfoData.companyName results drivers");
+        // Step 3: Get companies and build a map for company names
+        const companies = await User.find({ _id: { $in: handledCompanyIds } }).select("companyInfoData.companyName");
+        const companyNameMap = {};
+        companies.forEach(company => {
+            companyNameMap[company._id.toString()] = company.companyInfoData?.companyName || "Unknown Company";
+        });
 
-        const allResults = [];
+        // Step 4: Get all drivers for these companies and build a map by _id
+        const drivers = await Driver.find({ user: { $in: handledCompanyIds } });
+        const driverMap = {};
+        drivers.forEach(driver => {
+            driverMap[driver._id.toString()] = driver;
+        });
 
-        // Step 4: Aggregate results
-        for (const user of users) {
-            const companyName = user.companyInfoData?.companyName || "Unknown Company";
+        // Step 5: Get all results for these companies
+        const results = await Result.find({ user: { $in: handledCompanyIds } });
 
-            for (const result of user.results) {
-                const driver = user.drivers.find(d => d._id.toString() === result.driverId?.toString());
+        // Step 6: Prepare the final array
+        const allResults = results.map(result => {
+            const driver = driverMap[result.driverId?.toString()];
+            const companyName = companyNameMap[result.user.toString()] || "Unknown Company";
+            const driverName = driver ? `${driver.first_name} ${driver.last_name}` : "Unknown Driver";
+            const licenseNumber = driver ? driver.government_id : "N/A";
 
-                const driverName = driver ? `${driver.first_name} ${driver.last_name}` : "Unknown Driver";
-                const licenseNumber = driver?.government_id || "N/A";
+            return {
+                companyName,
+                driverName,
+                licenseNumber,
+                testDate: result.date,
+                testType: result.testType,
+                status: result.status,
+                caseNumber: result.caseNumber,
+                resultImage: result.file
+                    ? `data:${result.mimeType};base64,${result.file.toString("base64")}`
+                    : null
+            };
+        });
 
-                allResults.push({
-                    companyName,
-                    driverName,
-                    licenseNumber,
-                    testDate: result.date,
-                    testType: result.testType,
-                    status: result.status,
-                    caseNumber: result.caseNumber,
-                    resultImage: result.file
-                        ? `data:${result.mimeType};base64,${result.file.toString("base64")}`
-                        : null
-                });
-            }
-        }
-
-        // Step 5: Sort by test date
+        // Step 7: Sort by test date, newest first
         allResults.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
 
         res.status(200).json({

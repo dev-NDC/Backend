@@ -1,5 +1,5 @@
-const User = require("../../database/UserSchema");
-const Agency = require("../../database/AgencySchema");
+const User = require("../../database/User");
+const Agency = require("../../database/Agency");
 
 const getCustomerAndAgencyCount = async (req, res) => {
   try {

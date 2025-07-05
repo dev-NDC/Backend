@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const transporter = require("./Transpoter")
-const User = require("../../database/UserSchema");
+const User = require("../../database/User");
 
 const createCustomPDF = async (userData, id) => {
     const email = userData.contactInfoData.email;
@@ -460,7 +460,6 @@ const sendEmailWithPDF = async (pdfPath, recipientEmail, companyName, userId) =>
     try {
         // Send email
         // await transporter.sendMail(mailOptions);
-        // console.log("Email sent successfully!");
 
         // Read PDF as buffer
         const fileBuffer = fs.readFileSync(pdfPath);

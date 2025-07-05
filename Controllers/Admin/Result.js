@@ -1,40 +1,28 @@
-const User = require("../../database/UserSchema");
+const Result = require("../../database/Result");
+const Driver = require("../../database/Driver");
+const User = require("../../database/User");
 
-
-// Get all result
 const getAllResult = async (req, res) => {
     try {
-        // Fetch all users with results and drivers
-        const users = await User.find({ "results.0": { $exists: true } }).select(
-            "companyInfoData.companyName results drivers"
-        );
+        // Fetch all results and populate driver & user (company) fields
+        const results = await Result.find({})
+            .populate('user', 'companyInfoData.companyName')
+            .populate('driverId', 'first_name last_name government_id');
 
-        const allResults = [];
-
-        for (const user of users) {
-            const companyName = user.companyInfoData?.companyName || "Unknown Company";
-
-            for (const result of user.results) {
-                // Find the corresponding driver
-                const driver = user.drivers.find(d => d._id.toString() === result.driverId?.toString());
-
-                const driverName = driver ? `${driver.first_name} ${driver.last_name}` : "Unknown Driver";
-                const licenseNumber = driver?.government_id || "N/A";
-
-                allResults.push({
-                    companyName,
-                    driverName,
-                    licenseNumber,
-                    testDate: result.date,
-                    testType: result.testType,
-                    status: result.status,
-                    caseNumber: result.caseNumber,
-                    resultImage: result.file
-                        ? `data:${result.mimeType};base64,${result.file.toString("base64")}`
-                        : null
-                });
-            }
-        }
+        const allResults = results.map(result => ({
+            companyName: result.user?.companyInfoData?.companyName || "Unknown Company",
+            driverName: result.driverId
+                ? `${result.driverId.first_name} ${result.driverId.last_name}`
+                : "Unknown Driver",
+            licenseNumber: result.driverId?.government_id || "N/A",
+            testDate: result.date,
+            testType: result.testType,
+            status: result.status,
+            caseNumber: result.caseNumber,
+            resultImage: result.file
+                ? `data:${result.mimeType};base64,${result.file.toString("base64")}`
+                : null
+        }));
 
         // Sort by test date, newest first
         allResults.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
@@ -54,19 +42,33 @@ const getAllResult = async (req, res) => {
     }
 };
 
-// Upload Result
+
 const uploadResult = async (req, res) => {
     try {
         const { currentId, driverId, caseNumber, date, testType, status } = req.body;
         const file = req.file;
+
         if (!file) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "No file uploaded",
             });
         }
-        const result = {
-            driverId : driverId,
+
+        // Confirm user and driver exist
+        const user = await User.findById(currentId);
+        if (!user) {
+            return res.status(404).json({ errorStatus: 1, message: "User not found" });
+        }
+        const driver = await Driver.findOne({ _id: driverId, user: currentId });
+        if (!driver) {
+            return res.status(404).json({ errorStatus: 1, message: "Driver not found" });
+        }
+
+        // Create and save result document
+        const result = new Result({
+            user: currentId,
+            driverId,
             date: new Date(date),
             testType,
             status,
@@ -74,18 +76,14 @@ const uploadResult = async (req, res) => {
             file: file.buffer,
             filename: file.originalname,
             mimeType: file.mimetype,
-        };
+        });
 
-        const user = await User.findById(currentId);
-        if (!user) {
-            return res.status(404).json({ errorStatus: 1, message: "User not found" });
-        }
-        user.results.push(result);
-        const driver = user.drivers.id(result.driverId);
-        if (driver) {
-            driver.isActive = result.status === "Negative";
-        }
-        await user.save();
+        await result.save();
+
+        // Update driver's isActive status based on result status
+        driver.isActive = status === "Negative";
+        await driver.save();
+
         res.status(200).json({
             errorStatus: 0,
             message: "Result uploaded successfully",
@@ -99,25 +97,24 @@ const uploadResult = async (req, res) => {
     }
 };
 
-// Edit Result
+
 const editResult = async (req, res) => {
     try {
         const { currentId, resultId, updatedData } = req.body;
-        const parsedUpdatedData = JSON.parse(updatedData);
+        const parsedUpdatedData = typeof updatedData === "string" ? JSON.parse(updatedData) : updatedData;
         const file = req.file;
 
-        const user = await User.findById(currentId);
-        if (!user) {
-            return res.status(404).json({ errorStatus: 1, message: "User not found" });
-        }
-
-        const result = user.results.id(resultId);
+        // Find result
+        const result = await Result.findOne({ _id: resultId, user: currentId });
         if (!result) {
             return res.status(404).json({ errorStatus: 1, message: "Result not found" });
         }
 
         // Update result fields
         result.status = parsedUpdatedData?.status || result.status;
+        result.testType = parsedUpdatedData?.testType || result.testType;
+        result.caseNumber = parsedUpdatedData?.caseNumber || result.caseNumber;
+        result.date = parsedUpdatedData?.date ? new Date(parsedUpdatedData.date) : result.date;
 
         // Update file if a new one is uploaded
         if (file) {
@@ -126,13 +123,14 @@ const editResult = async (req, res) => {
             result.mimeType = file.mimetype;
         }
 
-        // Update driver's isActive status based on result status
-        const driver = user.drivers.id(result.driverId);
+        await result.save();
+
+        // Also update driver's isActive status if driver exists
+        const driver = await Driver.findOne({ _id: result.driverId, user: currentId });
         if (driver) {
             driver.isActive = result.status === "Negative";
+            await driver.save();
         }
-
-        await user.save();
 
         res.status(200).json({
             errorStatus: 0,
@@ -148,25 +146,16 @@ const editResult = async (req, res) => {
 };
 
 
-
-
-// Delete Result
 const deleteResult = async (req, res) => {
     try {
         const { currentId, resultId } = req.body;
 
-        const user = await User.findById(currentId);
-        if (!user) {
-            return res.status(404).json({ errorStatus: 1, message: "User not found" });
-        }
+        // Delete result document
+        const result = await Result.findOneAndDelete({ _id: resultId, user: currentId });
 
-        const resultIndex = user.results.findIndex(res => res._id.toString() === resultId);
-        if (resultIndex === -1) {
+        if (!result) {
             return res.status(404).json({ errorStatus: 1, message: "Result not found" });
         }
-
-        user.results.splice(resultIndex, 1);
-        await user.save();
 
         res.status(200).json({
             errorStatus: 0,

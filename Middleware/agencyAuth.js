@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const Agency = require("./../database/AgencySchema");
+const Agency = require("./../database/Agency");
 
 const agencyAuth = async (req, res, next) => {
   try {

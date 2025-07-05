@@ -1,5 +1,11 @@
-const User = require("../../database/UserSchema");
-const Agency = require("../../database/AgencySchema");
+const User = require("../../database/User");
+const Agency = require("../../database/Agency");
+const Driver = require("../../database/Driver");
+const Result = require("../../database/Result");
+const Certificate = require("../../database/Certificate");
+const Invoice = require("../../database/Invoice");
+const Random = require("../../database/Random");
+
 const isCompanyHandledByAgency = require("./checkAgencyPermission");
 
 const getAllUserData = async (req, res) => {
@@ -14,7 +20,7 @@ const getAllUserData = async (req, res) => {
             });
         }
 
-        const handledCompanyIds = currentAgency.handledCompanies || [];
+        const handledCompanyIds = currentAgency.handledCompanies?.map(c => c._id) || [];
         if (handledCompanyIds.length === 0) {
             return res.status(200).json({
                 errorStatus: 0,
@@ -23,16 +29,27 @@ const getAllUserData = async (req, res) => {
             });
         }
 
+        // Fetch all users (companies) for this agency
         const users = await User.find(
             { _id: { $in: handledCompanyIds } },
-            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers Membership"
+            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName Membership"
         );
+
+        // Fetch all drivers for these companies in one go
+        const allDrivers = await Driver.find({ user: { $in: handledCompanyIds }, isDeleted: false, isActive: true }).select("user");
+
+        // Count active drivers per company
+        const driverCountMap = {};
+        allDrivers.forEach(d => {
+            const key = d.user.toString();
+            driverCountMap[key] = (driverCountMap[key] || 0) + 1;
+        });
 
         const formattedUsers = users.map(user => ({
             companyName: user.companyInfoData?.companyName || "N/A",
             companyEmail: user.companyInfoData?.companyEmail || "N/A",
             companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
-            activeDriversCount: user.drivers?.filter(d => !d.isDeleted && d.isActive)?.length || 0,
+            activeDriversCount: driverCountMap[user._id.toString()] || 0,
             status: user.Membership?.planStatus || "N/A",
             id: user._id
         }));
@@ -51,7 +68,6 @@ const getAllUserData = async (req, res) => {
         });
     }
 };
-
 
 const getSingleUserDetails = async (req, res) => {
     try {
@@ -94,15 +110,37 @@ const getSingleUserDetails = async (req, res) => {
 
         const userObj = user.toObject();
 
+        // Fetch all related collections in parallel
+        const [drivers, results, certificates, invoices, randoms] = await Promise.all([
+            Driver.find({ user: userId }),
+            Result.find({ user: userId }),
+            Certificate.find({ user: userId }),
+            Invoice.find({ user: userId }),
+            Random.find({ "company._id": userId }), // Or Random.find({ user: userId }) if field is just 'user'
+        ]);
+
+        // Map drivers for fast lookup
+        const driverMap = {};
+        drivers.forEach(driver => {
+            driverMap[driver._id.toString()] = driver;
+        });
+
         // Enrich results with driver info
-        userObj.results = userObj.results.map(result => {
-            const driver = userObj.drivers.find(d => d._id.toString() === result.driverId?.toString());
+        const enrichedResults = results.map(result => {
+            const driver = driverMap[result.driverId?.toString()];
             return {
-                ...result,
+                ...result.toObject(),
                 driverName: driver ? `${driver.first_name} ${driver.last_name}` : "Unknown",
                 licenseNumber: driver ? driver.government_id : "N/A",
             };
         });
+
+        userObj.drivers = drivers;
+        userObj.results = enrichedResults;
+        userObj.certificates = certificates;
+        userObj.invoices = invoices;
+        userObj.randoms = randoms;
+
         res.status(200).json({
             errorStatus: 0,
             message: "Data retrieved successfully",
@@ -117,6 +155,7 @@ const getSingleUserDetails = async (req, res) => {
         });
     }
 };
+
 
 const updateCompanyInformation = async (req, res) => {
     try {
@@ -139,11 +178,10 @@ const updateCompanyInformation = async (req, res) => {
             });
         }
 
-
         const updatedUser = await User.findByIdAndUpdate(
             id,
             { companyInfoData },
-            { new: true, runValidators: true } // Return updated user & validate input
+            { new: true, runValidators: true }
         ).select("-contactInfoData.password");
         if (!updatedUser) {
             return res.status(404).json({
@@ -157,15 +195,13 @@ const updateCompanyInformation = async (req, res) => {
             companyInfoData: updatedUser.companyInfoData
         });
     } catch (error) {
-        console.error("Error updating company information:", error);
-        // Log the error for debugging purposes
         res.status(500).json({
             errorStatus: 1,
             error,
             message: "server error, please try again later"
         })
     }
-}
+};
 
 const updatePaymentInformation = async (req, res) => {
     try {
@@ -189,11 +225,10 @@ const updatePaymentInformation = async (req, res) => {
             });
         }
 
-
         const updatedUser = await User.findByIdAndUpdate(
             id,
             { paymentData },
-            { new: true, runValidators: true } // Return updated user & validate input
+            { new: true, runValidators: true }
         ).select("-contactInfoData.password");
         if (!updatedUser) {
             return res.status(404).json({
@@ -213,6 +248,7 @@ const updatePaymentInformation = async (req, res) => {
             message: "server error, please try again later"
         })
     }
-}
+};
+
 
 module.exports = { getAllUserData, getSingleUserDetails, updateCompanyInformation, updatePaymentInformation };

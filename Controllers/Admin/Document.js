@@ -1,14 +1,13 @@
-const User = require("../../database/UserSchema");
+const Document = require("../../database/Document");
+const User = require("../../database/User");
+const Admin = require("../../database/Admin")
 
-
-// Upload Document
 const uploadDocument = async (req, res) => {
     try {
-        const { currentId, description, date } = req.body;
+        const { currentId, title, date } = req.body;
         const file = req.file;
-        const uploaderId = req.user?.userId;
-
-        if (!file) {
+        const uploaderId = req.user?.id;
+        if (!file) {    
             return res.status(400).json({
                 errorStatus: 1,
                 message: "No file uploaded",
@@ -16,27 +15,16 @@ const uploadDocument = async (req, res) => {
         }
 
         // Get uploader details (name)
-        const uploader = await User.findById(uploaderId);
+        const uploader = await Admin.findById(uploaderId);
         if (!uploader) {
             return res.status(404).json({
                 errorStatus: 1,
                 message: "Uploader not found",
             });
         }
+        const fullName = `${uploader.firstName} ${uploader.lastName}`;
 
-        const fullName = `${uploader.contactInfoData.firstName} ${uploader.contactInfoData.lastName}`;
-        const document = {
-            description : description,
-            date: new Date(date),
-            uploadedBy: {
-                _id: uploader._id,
-                name: fullName
-            },
-            documentFile: file.buffer,
-            filename: file.originalname,
-            mimeType: file.mimetype,
-        };
-
+        // Confirm user (company) exists
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({
@@ -45,8 +33,21 @@ const uploadDocument = async (req, res) => {
             });
         }
 
-        user.documents.push(document);
-        await user.save();
+        // Create document in Document collection
+        const document = new Document({
+            user: currentId,
+            description: title,
+            date: new Date(date),
+            uploadedBy: {
+                _id: uploader._id,
+                name: fullName
+            },
+            documentFile: file.buffer,
+            filename: file.originalname,
+            mimeType: file.mimetype,
+        });
+
+        await document.save();
 
         res.status(200).json({
             errorStatus: 0,
@@ -62,25 +63,32 @@ const uploadDocument = async (req, res) => {
     }
 };
 
-// Edit Document
+
 const editDocument = async (req, res) => {
     try {
         const { currentId, documentId, updatedData } = req.body;
 
+        // Confirm user (company) exists (optional for security)
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
         }
 
-        const document = user.documents.id(documentId);
+        // Find and update the document (ensure it belongs to this user)
+        const document = await Document.findOneAndUpdate(
+            { _id: documentId, user: currentId },
+            {
+                $set: {
+                    description: updatedData.description,
+                    date: updatedData.date ? new Date(updatedData.date) : undefined
+                }
+            },
+            { new: true }
+        );
+
         if (!document) {
             return res.status(404).json({ errorStatus: 1, message: "Document not found" });
         }
-
-        document.description = updatedData.description || document.description;
-        document.date = new Date(updatedData.date) || document.date;
-
-        await user.save();
 
         res.status(200).json({
             errorStatus: 0,
@@ -96,23 +104,23 @@ const editDocument = async (req, res) => {
     }
 };
 
-// Delete Document
+
 const deleteDocument = async (req, res) => {
     try {
         const { currentId, documentId } = req.body;
 
+        // Confirm user (company) exists (optional)
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
         }
 
-        const docIndex = user.documents.findIndex(doc => doc._id.toString() === documentId);
-        if (docIndex === -1) {
+        // Delete document (ensure it belongs to this user)
+        const doc = await Document.findOneAndDelete({ _id: documentId, user: currentId });
+
+        if (!doc) {
             return res.status(404).json({ errorStatus: 1, message: "Document not found" });
         }
-
-        user.documents.splice(docIndex, 1);
-        await user.save();
 
         res.status(200).json({
             errorStatus: 0,
@@ -128,4 +136,5 @@ const deleteDocument = async (req, res) => {
     }
 };
 
-module.exports = {uploadDocument,editDocument,deleteDocument};
+
+module.exports = { uploadDocument, editDocument, deleteDocument };

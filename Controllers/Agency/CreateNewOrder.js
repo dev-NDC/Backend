@@ -1,5 +1,5 @@
-const User = require("../../database/UserSchema");
-const Agency = require("../../database/AgencySchema")
+const User = require("../../database/User");
+const Agency = require("../../database/Agency")
 const axios = require('axios');
 const crypto = require("crypto");
 require('dotenv').config();

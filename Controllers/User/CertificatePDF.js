@@ -3,7 +3,7 @@ const fs = require('fs');
 const axios = require("axios");
 const transporter = require("./Transpoter");
 const path = require("path");
-const User = require("../../database/UserSchema");
+const User = require("../../database/User");
 
 const generateCertificate = async (userData, id) => {
   const doc = new PDFDocument({

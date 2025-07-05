@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("../database/UserSchema"); // Import User model
+const User = require("../database/User"); // Import User model
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
 
 const Verification = () => {

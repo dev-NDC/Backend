@@ -1,4 +1,4 @@
-const Agency = require("../../database/AgencySchema");
+const Agency = require("../../database/Agency");
 
 const isCompanyHandledByAgency = async (companyId, agencyId) => {
   try {

@@ -1,41 +1,53 @@
-const User = require("../../database/UserSchema"); // Import User model
+const User = require("../../database/User");
+const Driver = require("../../database/Driver");
+const Result = require("../../database/Result")
+const Invoice = require("../../database/Invoice");
+const Certificate = require("../../database/Certificate");
+const Document = require("../../database/Document");
+const Random = require("../../database/Random");
 
 const getAllUserData = async (req, res) => {
-  try {
-    // Fetch all users (no role filtering needed)
-    const users = await User.find(
-      {},
-      "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName drivers Membership"
-    );
+    try {
+        // Fetch all users (only needed fields)
+        const users = await User.find(
+            {},
+            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName Membership"
+        );
 
-    // Transform the data
-    const formattedUsers = users.map(user => ({
-      companyName: user.companyInfoData?.companyName || "N/A",
-      companyEmail: user.companyInfoData?.companyEmail || "N/A",
-      companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
-      activeDriversCount: user.drivers
-        ? user.drivers.filter(driver => !driver.isDeleted && driver.isActive === true).length
-        : 0,
-      status: user.Membership?.planStatus || "N/A",
-      id: user._id
-    }));
+        // Get all driver counts by user in bulk to avoid N+1 queries
+        const userIds = users.map(user => user._id);
+        const drivers = await Driver.find({ user: { $in: userIds }, isDeleted: false, isActive: true }, "user");
+        // Map userId -> active driver count
+        const driverCounts = {};
+        drivers.forEach(driver => {
+            const uid = driver.user.toString();
+            driverCounts[uid] = (driverCounts[uid] || 0) + 1;
+        });
 
-    res.status(200).json({
-      errorStatus: 0,
-      message: "Data retrieved successfully",
-      data: formattedUsers
-    });
+        // Transform data
+        const formattedUsers = users.map(user => ({
+            companyName: user.companyInfoData?.companyName || "N/A",
+            companyEmail: user.companyInfoData?.companyEmail || "N/A",
+            companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
+            activeDriversCount: driverCounts[user._id.toString()] || 0,
+            status: user.Membership?.planStatus || "N/A",
+            id: user._id
+        }));
 
-  } catch (error) {
-    console.error("getAllUserData error:", error);
-    res.status(500).json({
-      errorStatus: 1,
-      message: "Server error, please try again later",
-      error: error.message
-    });
-  }
+        res.status(200).json({
+            errorStatus: 0,
+            message: "Data retrieved successfully",
+            data: formattedUsers
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Server error, please try again later",
+            error: error.message
+        });
+    }
 };
-
 
 
 const getSingleUserDetails = async (req, res) => {
@@ -49,7 +61,7 @@ const getSingleUserDetails = async (req, res) => {
             });
         }
 
-        // Fetch user details
+        // Fetch user details (exclude password)
         const user = await User.findById(userId).select("-contactInfoData.password");
 
         if (!user) {
@@ -59,19 +71,45 @@ const getSingleUserDetails = async (req, res) => {
             });
         }
 
-        // Clone the user object to avoid modifying the Mongoose document
-        const userObj = user.toObject();
+        // Fetch related data
+        const [
+            drivers,
+            results,
+            invoices,
+            certificates,
+            documents,
+            randoms
+        ] = await Promise.all([
+            Driver.find({ user: userId}),
+            Result.find({ user: userId }),
+            Invoice.find({ user: userId }),
+            Certificate.find({ user: userId }),
+            Document.find({ user: userId }),
+            Random.find({ user: userId })
+        ]);
 
-        // Enrich each result with driver name and government_id
-        userObj.results = userObj.results.map(result => {
-            const driver = userObj.drivers.find(d => d._id.toString() === result.driverId?.toString());
+        // Prepare drivers map for easy lookup (for results enrichment)
+        const driverMap = {};
+        drivers.forEach(d => { driverMap[d._id.toString()] = d });
 
+        // Enrich results with driver data
+        const enrichedResults = results.map(result => {
+            const driver = driverMap[result.driverId?.toString()];
             return {
-                ...result,
+                ...result.toObject(),
                 driverName: driver ? `${driver.first_name} ${driver.last_name}` : "Unknown",
                 licenseNumber: driver ? driver.government_id : "N/A",
             };
         });
+
+        // Prepare response object (merge related data for full details)
+        const userObj = user.toObject();
+        userObj.drivers = drivers;
+        userObj.results = enrichedResults;
+        userObj.invoices = invoices;
+        userObj.certificates = certificates;
+        userObj.documents = documents;
+        userObj.randoms = randoms;
 
         res.status(200).json({
             errorStatus: 0,
@@ -89,6 +127,7 @@ const getSingleUserDetails = async (req, res) => {
 };
 
 
+
 const updateCompanyInformation = async (req, res) => {
     try {
         const id = req.body.currentId;
@@ -103,7 +142,7 @@ const updateCompanyInformation = async (req, res) => {
         const updatedUser = await User.findByIdAndUpdate(
             id,
             { companyInfoData },
-            { new: true, runValidators: true } // Return updated user & validate input
+            { new: true, runValidators: true }
         ).select("-contactInfoData.password");
         if (!updatedUser) {
             return res.status(404).json({
@@ -125,6 +164,7 @@ const updateCompanyInformation = async (req, res) => {
     }
 }
 
+
 const updatePaymentInformation = async (req, res) => {
     try {
         const id = req.body.currentId;
@@ -139,7 +179,7 @@ const updatePaymentInformation = async (req, res) => {
         const updatedUser = await User.findByIdAndUpdate(
             id,
             { paymentData },
-            { new: true, runValidators: true } // Return updated user & validate input
+            { new: true, runValidators: true }
         ).select("-contactInfoData.password");
         if (!updatedUser) {
             return res.status(404).json({
@@ -160,6 +200,8 @@ const updatePaymentInformation = async (req, res) => {
         })
     }
 }
+
+
 
 const updateMembershipInformation = async (req, res) => {
     try {
@@ -200,4 +242,10 @@ const updateMembershipInformation = async (req, res) => {
 };
 
 
-module.exports = { getAllUserData, getSingleUserDetails, updateCompanyInformation, updatePaymentInformation, updateMembershipInformation };
+module.exports = {
+    getAllUserData,
+    getSingleUserDetails,
+    updateCompanyInformation,
+    updatePaymentInformation,
+    updateMembershipInformation
+};

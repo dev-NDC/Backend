@@ -1,4 +1,4 @@
-const User = require("../../database/UserSchema");
+const User = require("../../database/User");
 const isCompanyHandledByAgency = require("./checkAgencyPermission");
 
 

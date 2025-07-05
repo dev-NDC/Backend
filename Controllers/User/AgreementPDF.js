@@ -4,7 +4,7 @@ const path = require("path");
 const axios = require("axios");
 const transporter = require("./Transpoter")
 
-const User = require("../../database/UserSchema");
+const User = require("../../database/User");
 
 const createAgreementPDF = async (userData, id, planName, planPrice) => {
     const pageMargin = 30; // Same margin on all sides

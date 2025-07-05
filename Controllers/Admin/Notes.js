@@ -1,14 +1,26 @@
-const User = require('../../database/UserSchema');
+const User = require('../../database/User');
+const Admin = require("../../database/Admin")
 
 const addNote = async (req, res) => {
   try {
     const { currentId, note } = req.body;
+    const uploaderId = req.user.id
+    // Get uploader details (name)
+    const uploader = await Admin.findById(uploaderId);
+    if (!uploader) {
+      return res.status(404).json({
+        errorStatus: 1,
+        message: "Uploader not found",
+      });
+    }
+    const fullName = `${uploader.firstName} ${uploader.lastName}`;
 
     await User.findByIdAndUpdate(currentId, {
       $push: {
         notes: {
           text: note,
           timestamp: new Date(),
+          addedBy: fullName
         }
       }
     });

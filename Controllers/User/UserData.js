@@ -1,35 +1,69 @@
-const User = require("../../database/UserSchema")
-
+const User = require("../../database/User");
+const Driver = require("../../database/Driver");
+const Result = require("../../database/Result");
+const Certificate = require("../../database/Certificate");
+const Invoice = require("../../database/Invoice");
+const Random = require("../../database/Random");
 
 const userData = async (req, res) => {
     try {
         const id = req.user.id;
         const data = await User.findById(id).select("-contactInfoData.password -_id");
-        // Clone the user object to avoid modifying the Mongoose document
+        if (!data) {
+            return res.status(404).json({
+                errorStatus: 1,
+                message: "User not found"
+            });
+        }
         const userObj = data.toObject();
-        // Enrich each result with driver name and government_id
-        userObj.results = userObj.results.map(result => {
-            const driver = userObj.drivers.find(d => d._id.toString() === result.driverId?.toString());
 
+        // Fetch all related collections
+        const [drivers, results, certificates, invoices, randoms] = await Promise.all([
+            Driver.find({ user: id }),
+            Result.find({ user: id }),
+            Certificate.find({ user: id }),
+            Invoice.find({ user: id }),
+            Random.find({ user: id })
+        ]);
+
+        // Prepare driver map for enrichment
+        const driverMap = {};
+        drivers.forEach(driver => {
+            driverMap[driver._id.toString()] = driver;
+        });
+
+        // Enrich results with driver name and license number
+        const enrichedResults = results.map(result => {
+            const driver = driverMap[result.driverId?.toString()];
             return {
-                ...result,
+                ...result.toObject(),
                 driverName: driver ? `${driver.first_name} ${driver.last_name}` : "Unknown",
                 licenseNumber: driver ? driver.government_id : "N/A",
             };
         });
 
+        // Attach all fetched details to user object
+        userObj.drivers = drivers;
+        userObj.results = enrichedResults;
+        userObj.certificates = certificates;
+        userObj.invoices = invoices;
+        userObj.randoms = randoms;
+
         res.status(200).json({
             errorStatus: 0,
             message: "UserData sent successfully",
-            data:userObj
-        })
+            data: userObj
+        });
     } catch (error) {
         res.status(500).json({
             errorStatus: 1,
             message: "An unexpected error occurred. Please try again later."
-        })
+        });
     }
-}
+};
+
+
+
 
 const updateCompanyInformation = async (req, res) => {
     try {
@@ -44,7 +78,7 @@ const updateCompanyInformation = async (req, res) => {
         const updatedUser = await User.findByIdAndUpdate(
             id,
             { companyInfoData },
-            { new: true, runValidators: true } // Return updated user & validate input
+            { new: true, runValidators: true }
         ).select("-contactInfoData.password");
         if (!updatedUser) {
             return res.status(404).json({
@@ -60,9 +94,10 @@ const updateCompanyInformation = async (req, res) => {
         res.status(500).json({
             errorStatus: 1,
             message: "server error, please try again later"
-        })
+        });
     }
-}
+};
+
 
 const updatePayment = async (req, res) => {
     try {
@@ -77,7 +112,7 @@ const updatePayment = async (req, res) => {
         const updatedUser = await User.findByIdAndUpdate(
             id,
             { paymentData },
-            { new: true, runValidators: true } // Return updated user & validate input
+            { new: true, runValidators: true }
         ).select("-contactInfoData.password");
         if (!updatedUser) {
             return res.status(404).json({
@@ -93,8 +128,9 @@ const updatePayment = async (req, res) => {
         res.status(500).json({
             errorStatus: 1,
             message: "server error, please try again later"
-        })
+        });
     }
-}
+};
+
 
 module.exports = { userData, updateCompanyInformation, updatePayment };

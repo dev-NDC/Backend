@@ -1,16 +1,17 @@
-const User = require("../../database/UserSchema");
+const Driver = require("../../database/Driver");
+const User = require("../../database/User");
 
 const AddDriver = async (req, res) => {
     try {
-        const {firstName, lastName, email, license, dob, phone } = req.body.driver;
+        const { firstName, lastName, email, license, dob, phone } = req.body.driver;
         const userId = req.body.currentId;
-        if (!userId || userId == null || !firstName || !lastName || !email || !license || !dob || !phone) {
+        if (!userId || !firstName || !lastName || !email || !license || !dob || !phone) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "Please provide all required fields"
             });
         }
-        // Find user by ID
+        // Confirm user exists
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({
@@ -19,26 +20,24 @@ const AddDriver = async (req, res) => {
             });
         }
 
-        // Create new driver object
-        const newDriver = {
-            first_name : firstName,
-            last_name : lastName,
+        // Create and save driver document
+        const newDriver = new Driver({
+            user: userId,
+            first_name: firstName,
+            last_name: lastName,
             email,
             government_id: license,
             dob,
             phone,
-            creationDate: new Date().toISOString(), // Current date
-            isActive : true,
-            createdBy: "Admin", // Set createdBy to Customer
-            deletionDate: null, // Leave empty
+            creationDate: new Date().toISOString(),
+            isActive: true,
+            createdBy: "Admin",
+            deletionDate: null,
             isDeleted: false
-        };
+        });
 
-        // Push driver to user's `drivers` array
-        user.drivers.push(newDriver);
+        await newDriver.save();
 
-        // Save updated user document
-        await user.save();
         res.status(201).json({
             errorStatus: 0,
             message: "Driver added successfully",
@@ -46,10 +45,10 @@ const AddDriver = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             errorStatus: 1,
-            message: 'server error, please try again later'
-        })
+            message: 'Server error, please try again later'
+        });
     }
-}
+};
 
 const updateDriver = async (req, res) => {
     try {
@@ -63,24 +62,17 @@ const updateDriver = async (req, res) => {
             });
         }
 
-        const { _id, ...otherFields } = driverData;
-
-        // Prepare update fields for the specific driver in the array
-        const updateFields = {};
-        for (const [key, value] of Object.entries(otherFields)) {
-            updateFields[`drivers.$.${key}`] = value;
-        }
-
-        const user = await User.findOneAndUpdate(
-            { _id: userId, "drivers._id": _id },
-            { $set: updateFields },
+        // Find and update driver (must match user for security)
+        const updatedDriver = await Driver.findOneAndUpdate(
+            { _id: driverData._id, user: userId, isDeleted: false },
+            { $set: { ...driverData, updatedAt: new Date() } },
             { new: true }
         );
 
-        if (!user) {
+        if (!updatedDriver) {
             return res.status(404).json({
                 errorStatus: 1,
-                message: "User or driver not found",
+                message: "Driver not found",
             });
         }
 
@@ -97,12 +89,10 @@ const updateDriver = async (req, res) => {
     }
 };
 
-
-
 const deleteDriver = async (req, res) => {
     try {
-        const driverId = req.body.driver._id;  // Change this to match your body structure
-        const userId = req.body.currentId;   // Ensure the current user ID is coming from req.user (authentication)
+        const driverId = req.body.driver._id;
+        const userId = req.body.currentId;
 
         if (!driverId) {
             return res.status(400).json({
@@ -111,19 +101,20 @@ const deleteDriver = async (req, res) => {
             });
         }
 
-        const updatedUser = await User.findOneAndUpdate(
-            { _id: userId, "drivers._id": driverId },
+        // Soft delete driver (set isDeleted, deletionDate, deletedBy)
+        const updatedDriver = await Driver.findOneAndUpdate(
+            { _id: driverId, user: userId, isDeleted: false },
             {
                 $set: {
-                    "drivers.$.isDeleted": true,
-                    "drivers.$.deletionDate": new Date().toISOString(),
-                    "drivers.$.deletedBy": "Admin",
+                    isDeleted: true,
+                    deletionDate: new Date().toISOString(),
+                    deletedBy: "Admin",
                 },
             },
             { new: true }
         );
 
-        if (!updatedUser) {
+        if (!updatedDriver) {
             return res.status(404).json({
                 errorStatus: 1,
                 message: "Driver not found",
@@ -135,7 +126,6 @@ const deleteDriver = async (req, res) => {
             message: "Driver deleted successfully",
         });
     } catch (error) {
-        console.error("Error deleting driver:", error);
         res.status(500).json({
             errorStatus: 1,
             message: "Server error, please try again later",
@@ -145,4 +135,4 @@ const deleteDriver = async (req, res) => {
 };
 
 
-module.exports = { AddDriver, updateDriver, deleteDriver }
+module.exports = { AddDriver, updateDriver, deleteDriver };

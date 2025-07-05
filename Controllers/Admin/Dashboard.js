@@ -1,5 +1,8 @@
-const User = require("../../database/UserSchema");
-const Agency = require("../../database/AgencySchema");
+const Driver = require("../../database/Driver");
+const User = require("../../database/User");
+const Agency = require("../../database/Agency");
+const Result = require("../../database/Result");
+const Visitor = require("../../database/Visitor");
 
 const getCustomerAndAgencyCount = async (req, res) => {
   try {
@@ -11,12 +14,8 @@ const getCustomerAndAgencyCount = async (req, res) => {
       "Membership.planStatus": "Active"
     });
 
-    // 3. Total Drivers (sum of drivers array length from all users)
-    const usersWithDrivers = await User.find(
-      { "drivers.0": { $exists: true } },
-      { drivers: 1 }
-    );
-    const totalDrivers = usersWithDrivers.reduce((sum, user) => sum + user.drivers.length, 0);
+    // 3. Total Drivers (count all Driver docs)
+    const totalDrivers = await Driver.countDocuments();
 
     // 4. Total Agencies
     const totalAgencies = await Agency.countDocuments();
@@ -34,6 +33,7 @@ const getCustomerAndAgencyCount = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch counts" });
   }
 };
+
 
 const getUserCountsLast6Months = async (req, res) => {
   try {
@@ -65,6 +65,7 @@ const getUserCountsLast6Months = async (req, res) => {
   }
 };
 
+
 const getMonthlyTestScheduleStats = async (req, res) => {
   try {
     const now = new Date();
@@ -89,32 +90,27 @@ const getMonthlyTestScheduleStats = async (req, res) => {
       });
     }
 
-    // Fetch users with any results in the last 6 months
-    const users = await User.find(
-      { "results.date": { $gte: sixMonthsAgo } },
-      { results: 1 }
-    );
+    // Fetch results from last 6 months
+    const results = await Result.find({ date: { $gte: sixMonthsAgo } });
 
     // Tally results
-    users.forEach(user => {
-      user.results.forEach(result => {
-        if (!result?.date) return;
-        const resultDate = new Date(result.date);
-        if (resultDate < sixMonthsAgo) return;
+    results.forEach(result => {
+      if (!result?.date) return;
+      const resultDate = new Date(result.date);
+      if (resultDate < sixMonthsAgo) return;
 
-        const month = resultDate.getMonth();
-        const year = resultDate.getFullYear();
-        const monthEntry = months.find(m => m.month === month && m.year === year);
+      const month = resultDate.getMonth();
+      const year = resultDate.getFullYear();
+      const monthEntry = months.find(m => m.month === month && m.year === year);
 
-        if (monthEntry) {
-          const type = (result.testType || "").toLowerCase();
-          if (type === "random") {
-            monthEntry.random++;
-          } else {
-            monthEntry.other++;
-          }
+      if (monthEntry) {
+        const type = (result.testType || "").toLowerCase();
+        if (type === "random") {
+          monthEntry.random++;
+        } else {
+          monthEntry.other++;
         }
-      });
+      }
     });
 
     const response = months.map(m => ({
@@ -131,6 +127,71 @@ const getMonthlyTestScheduleStats = async (req, res) => {
   }
 };
 
+const getWebsiteVisitsLast6Months = async (req, res) => {
+  try {
+    const now = new Date();
+    // Get the first day of the current month
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Go 5 months back safely
+    const sixMonthsAgo = new Date(currentMonthStart);
+    sixMonthsAgo.setMonth(currentMonthStart.getMonth() - 5);
+
+    // Aggregate counts by month and year
+    const visits = await Visitor.aggregate([
+      {
+        $match: {
+          visitTime: { $gte: sixMonthsAgo }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$visitTime" },
+            month: { $month: "$visitTime" }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { "_id.year": 1, "_id.month": 1 }
+      }
+    ]);
+
+    // Prepare months array (ensuring months with 0 visits are present)
+    const results = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // JavaScript: 0-indexed, Mongo: 1-indexed
+      const label = date.toLocaleString("default", { month: "short" });
+
+      const found = visits.find(
+        v => v._id.year === year && v._id.month === month
+      );
+      results.push({
+        name: label,
+        year: year,
+        count: found ? found.count : 0
+      });
+    }
+
+    return res.status(200).json({
+      errorStatus: 0,
+      message: "Website visits data fetched successfully",
+      data: results
+    });
+  } catch (error) {
+    console.error("Error fetching website visits:", error);
+    return res.status(500).json({
+      errorStatus: 1,
+      message: "Server error, please try again later",
+      error: error.message
+    });
+  }
+};
 
 
-module.exports = { getCustomerAndAgencyCount, getUserCountsLast6Months, getMonthlyTestScheduleStats };
+
+
+module.exports = { getCustomerAndAgencyCount, getUserCountsLast6Months, getMonthlyTestScheduleStats, getWebsiteVisitsLast6Months };

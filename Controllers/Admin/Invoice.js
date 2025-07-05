@@ -1,6 +1,6 @@
-const User = require("../../database/UserSchema");
+const Invoice = require("../../database/Invoice");
+const User = require("../../database/User");
 
-// Upload Invoice
 const uploadInvoice = async (req, res) => {
     try {
         const { currentId, invoiceNumber, amount, date, status } = req.body;
@@ -13,16 +13,7 @@ const uploadInvoice = async (req, res) => {
             });
         }
 
-        const invoice = {
-            invoiceNumber,
-            amount,
-            date: new Date(date),
-            status,
-            file: file.buffer,
-            filename: file.originalname,
-            mimeType: file.mimetype,
-        };
-
+        // Confirm user exists
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({
@@ -31,8 +22,19 @@ const uploadInvoice = async (req, res) => {
             });
         }
 
-        user.invoices.push(invoice);
-        await user.save();
+        // Create and save invoice document
+        const invoice = new Invoice({
+            user: currentId,
+            invoiceNumber,
+            amount,
+            date: new Date(date),
+            status,
+            file: file.buffer,
+            filename: file.originalname,
+            mimeType: file.mimetype,
+        });
+
+        await invoice.save();
 
         res.status(200).json({
             errorStatus: 0,
@@ -47,27 +49,33 @@ const uploadInvoice = async (req, res) => {
     }
 };
 
-// Edit Invoice
 const editInvoice = async (req, res) => {
     try {
         const { currentId, invoiceId, updatedData } = req.body;
 
+        // Confirm user exists (optional, for security)
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
         }
 
-        const invoice = user.invoices.id(invoiceId);
+        // Update invoice document (must match user and invoiceId)
+        const invoice = await Invoice.findOneAndUpdate(
+            { _id: invoiceId, user: currentId },
+            {
+                $set: {
+                    invoiceNumber: updatedData.invoiceNumber,
+                    amount: updatedData.amount,
+                    date: updatedData.date ? new Date(updatedData.date) : undefined,
+                    status: updatedData.status
+                }
+            },
+            { new: true }
+        );
+
         if (!invoice) {
             return res.status(404).json({ errorStatus: 1, message: "Invoice not found" });
         }
-
-        invoice.invoiceNumber = updatedData.invoiceNumber || invoice.invoiceNumber;
-        invoice.amount = updatedData.amount || invoice.amount;
-        invoice.date = updatedData.date ? new Date(updatedData.date) : invoice.date;
-        invoice.status = updatedData.status || invoice.status;
-
-        await user.save();
 
         res.status(200).json({
             errorStatus: 0,
@@ -82,23 +90,23 @@ const editInvoice = async (req, res) => {
     }
 };
 
-// Delete Invoice
+
 const deleteInvoice = async (req, res) => {
     try {
         const { currentId, invoiceId } = req.body;
 
+        // Confirm user exists (optional)
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
         }
 
-        const invoiceIndex = user.invoices.findIndex(inv => inv._id.toString() === invoiceId);
-        if (invoiceIndex === -1) {
+        // Delete invoice document
+        const invoice = await Invoice.findOneAndDelete({ _id: invoiceId, user: currentId });
+
+        if (!invoice) {
             return res.status(404).json({ errorStatus: 1, message: "Invoice not found" });
         }
-
-        user.invoices.splice(invoiceIndex, 1);
-        await user.save();
 
         res.status(200).json({
             errorStatus: 0,
@@ -112,5 +120,6 @@ const deleteInvoice = async (req, res) => {
         });
     }
 };
+
 
 module.exports = { uploadInvoice, editInvoice, deleteInvoice };

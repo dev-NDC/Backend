@@ -10,9 +10,9 @@ const { sendResetEmail } = require("./EmailTempletes/ResetPassword")
 
 
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
-const User = require("../../database/UserSchema");
-const Admin = require("../../database/AdminSchema");
-const Agency = require("../../database/AgencySchema");
+const User = require("../../database/User");
+const Admin = require("../../database/Admin");
+const Agency = require("../../database/Agency");
 const Setting = require("../../database/Setting")
 
 const login = async (req, res) => {

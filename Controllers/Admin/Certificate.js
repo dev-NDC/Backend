@@ -1,6 +1,6 @@
-const User = require("../../database/UserSchema");
+const Certificate = require("../../database/Certificate");
+const User = require("../../database/User");
 
-// Upload Certificate
 const uploadCertificate = async (req, res) => {
     try {
         const { currentId, description, issueDate, expirationDate } = req.body;
@@ -13,15 +13,7 @@ const uploadCertificate = async (req, res) => {
             });
         }
 
-        const certificate = {
-            description,
-            issueDate: new Date(issueDate),
-            expirationDate: new Date(expirationDate),
-            certificateFile: file.buffer,
-            filename: file.originalname,
-            mimeType: file.mimetype,
-        };
-
+        // Confirm user exists
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({
@@ -30,8 +22,18 @@ const uploadCertificate = async (req, res) => {
             });
         }
 
-        user.certificates.push(certificate);
-        await user.save();
+        // Create certificate doc
+        const certificate = new Certificate({
+            user: currentId,
+            description,
+            issueDate: new Date(issueDate),
+            expirationDate: new Date(expirationDate),
+            certificateFile: file.buffer,
+            filename: file.originalname,
+            mimeType: file.mimetype,
+        });
+
+        await certificate.save();
 
         res.status(200).json({
             errorStatus: 0,
@@ -47,26 +49,33 @@ const uploadCertificate = async (req, res) => {
     }
 };
 
-// Edit Certificate
+
 const editCertificate = async (req, res) => {
     try {
         const { currentId, certificateId, updatedData } = req.body;
 
+        // Confirm user exists (optional, but for stricter security)
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
         }
 
-        const certificate = user.certificates.id(certificateId);
+        // Find and update certificate, ensure it belongs to the user
+        const certificate = await Certificate.findOneAndUpdate(
+            { _id: certificateId, user: currentId },
+            {
+                $set: {
+                    description: updatedData.description,
+                    issueDate: updatedData.issueDate ? new Date(updatedData.issueDate) : undefined,
+                    expirationDate: updatedData.expirationDate ? new Date(updatedData.expirationDate) : undefined
+                }
+            },
+            { new: true }
+        );
+
         if (!certificate) {
             return res.status(404).json({ errorStatus: 1, message: "Certificate not found" });
         }
-
-        certificate.description = updatedData.description || certificate.description;
-        certificate.issueDate = new Date(updatedData.issueDate) || certificate.issueDate;
-        certificate.expirationDate = new Date(updatedData.expirationDate) || certificate.expirationDate;
-
-        await user.save();
 
         res.status(200).json({
             errorStatus: 0,
@@ -82,23 +91,23 @@ const editCertificate = async (req, res) => {
     }
 };
 
-// Delete Certificate
+
 const deleteCertificate = async (req, res) => {
     try {
         const { currentId, certificateId } = req.body;
 
+        // Confirm user exists (optional)
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
         }
 
-        const certIndex = user.certificates.findIndex(cert => cert._id.toString() === certificateId);
-        if (certIndex === -1) {
+        // Delete certificate belonging to this user
+        const cert = await Certificate.findOneAndDelete({ _id: certificateId, user: currentId });
+
+        if (!cert) {
             return res.status(404).json({ errorStatus: 1, message: "Certificate not found" });
         }
-
-        user.certificates.splice(certIndex, 1);
-        await user.save();
 
         res.status(200).json({
             errorStatus: 0,
@@ -114,5 +123,4 @@ const deleteCertificate = async (req, res) => {
     }
 };
 
-
-module.exports = {uploadCertificate,editCertificate,deleteCertificate};
+module.exports = { uploadCertificate, editCertificate, deleteCertificate };

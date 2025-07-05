@@ -1,6 +1,6 @@
-const User = require("../../database/UserSchema");
-const Admin = require("../../database/AdminSchema");
-const Agency = require("../../database/AgencySchema");
+const User = require("../../database/User");
+const Admin = require("../../database/Admin");
+const Agency = require("../../database/Agency");
 
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");

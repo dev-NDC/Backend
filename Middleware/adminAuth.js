@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const Admin = require("./../database/AdminSchema");
+const Admin = require("./../database/Admin");
 const adminAuth = async (req, res, next) => {
   try {
     const token = req.header("Authorization")?.replace("Bearer ", "");
