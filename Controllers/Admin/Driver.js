@@ -1,5 +1,73 @@
 const Driver = require("../../database/Driver");
 const User = require("../../database/User");
+const Result = require("../../database/Result");
+
+
+const allCompany = async (req, res) => {
+    try {
+        // Only fetch companies (users) with a companyName
+        const companies = await User.find(
+            { "companyInfoData.companyName": { $exists: true, $ne: "" } },
+            { "companyInfoData.companyName": 1 }
+        ).lean();
+
+        // Format output
+        const formatted = companies.map(company => ({
+            _id: company._id,
+            companyName: company.companyInfoData?.companyName || "N/A",
+        }));
+
+        res.status(200).json({
+            errorStatus: 0,
+            message: "All companies fetched successfully",
+            data: formatted,
+        });
+    } catch (error) {
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Server error, could not fetch companies",
+            error: error.message,
+        });
+    }
+};
+
+
+const ChangeDriverCompany = async (req, res) => {
+    try {
+        const { driverId, newCompanyId } = req.body;
+
+        // 1. Find and update the driver
+        const driver = await Driver.findById(driverId);
+        if (!driver) {
+            return res.status(404).json({
+                errorStatus: 1,
+                message: "Driver not found"
+            });
+        }
+
+        const oldCompanyId = driver.user.toString();
+        driver.user = newCompanyId;
+        await driver.save();
+
+        // 2. Update all results where user === oldCompanyId and driverId === driverId
+        await Result.updateMany(
+            { driverId: driverId, user: oldCompanyId },
+            { $set: { user: newCompanyId } }
+        );
+
+        res.status(200).json({
+            errorStatus: 0,
+            message: "Driver company changed successfully and related results updated."
+        });
+    } catch (error) {
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Server error, please try again later.",
+            error: error.message
+        });
+    }
+};
+
 
 const AddDriver = async (req, res) => {
     try {
@@ -135,4 +203,4 @@ const deleteDriver = async (req, res) => {
 };
 
 
-module.exports = { AddDriver, updateDriver, deleteDriver };
+module.exports = { AddDriver, updateDriver, deleteDriver, allCompany, ChangeDriverCompany };

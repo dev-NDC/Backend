@@ -13,8 +13,6 @@ exports.updateCompanyInformationValidator = [
     body("companyEmail")
         .notEmpty().withMessage("Company email is required")
         .isEmail().withMessage("Invalid company email"),
-    body("safetyAgencyName")
-        .optional({ checkFalsy: true }),
     body("employees")
         .notEmpty().withMessage("Number of employees is required")
         .isNumeric().withMessage("Employees must be a number"),
@@ -50,14 +48,4 @@ exports.updatePaymentValidator = [
     body("billingZip")
         .notEmpty().withMessage("Billing Zip  is required")
         .isNumeric().withMessage("Billing Zip must be a number"),
-    body("accountNumber")
-        .notEmpty().withMessage("Account number is required")
-        .isNumeric().withMessage("Account number must be a number"),
-    body("routingNumber")
-        .notEmpty().withMessage("Routing number is required")
-        .isNumeric().withMessage("Routing number must be a number"),
-    body("accountName")
-        .notEmpty().withMessage("Account holder name is required"),
-    body("accountType")
-        .notEmpty().withMessage("Account type is required"),
 ];

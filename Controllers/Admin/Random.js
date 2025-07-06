@@ -1,6 +1,8 @@
 const Driver = require("../../database/Driver");
 const User = require("../../database/User");
 const Random = require("../../database/Random");
+const {RandomDriver} = require("./EmailTempletes/Random")
+
 
 const fetchRandomDriver = async (req, res) => {
   try {
@@ -230,6 +232,36 @@ const deleteRandomEntry = async (req, res) => {
   }
 };
 
+const sendEmailToRandomDriver = async (req, res) => {
+  try {
+    const { selectedItem, ccEmail } = req.body;
+    // Fetch company email from database
+    const company = await User.findById(selectedItem.company._id).lean();
+    const companyEmail = company?.companyInfoData?.companyEmail;
+
+    if (!companyEmail) {
+      return res.status(404).json({
+        errorStatus: 1,
+        message: "Company email not found. Cannot send email."
+      });
+    }
+
+    // Send the email
+    await RandomDriver(companyEmail, ccEmail, selectedItem)
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Random selection email sent successfully!",
+    });
+  } catch (error) {
+    console.error("Error sending email to random driver:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Failed to send random selection email. Please try again later.",
+      error: error.message
+    });
+  }
+};
 
 module.exports = {
   addRandomDriver,
@@ -237,4 +269,5 @@ module.exports = {
   fetchRandomData,
   deleteRandomEntry,
   updateRandomStatus,
+  sendEmailToRandomDriver,
 };

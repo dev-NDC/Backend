@@ -6,7 +6,7 @@ const upload = multer({ storage: storage });
 
 const {verifyAdmin} = require("../../Controllers/Admin/ValidateAdmin");
 const {getAllUserData,getSingleUserDetails,updateCompanyInformation,updatePaymentInformation, updateMembershipInformation } = require("../../Controllers/Admin/UserData")
-const {AddDriver, updateDriver, deleteDriver} = require("../../Controllers/Admin/Driver")
+
 const {adminAuth} = require("../../Middleware/adminAuth")
 
 
@@ -16,9 +16,15 @@ AdminRoutes.post("/getSingleUserDetails",adminAuth ,getSingleUserDetails);
 AdminRoutes.post("/updateCompanyInformation",adminAuth ,updateCompanyInformation);
 AdminRoutes.post("/updatePaymentInformation",adminAuth ,updatePaymentInformation);
 AdminRoutes.post("/updateMembershipInformation",adminAuth ,updateMembershipInformation);
+
+
+// routes for driver
+const {AddDriver, updateDriver, deleteDriver, allCompany, ChangeDriverCompany} = require("../../Controllers/Admin/Driver")
 AdminRoutes.post("/addDriver",adminAuth ,AddDriver);
 AdminRoutes.post("/updateDriver",adminAuth ,updateDriver);
 AdminRoutes.post("/deleteDriver",adminAuth ,deleteDriver);
+AdminRoutes.get("/allCompany",adminAuth ,allCompany);
+AdminRoutes.post("/changeDriverCompany",adminAuth ,ChangeDriverCompany);
 
 // routes for admin dashboard
 const {getCustomerAndAgencyCount, getUserCountsLast6Months, getMonthlyTestScheduleStats, getWebsiteVisitsLast6Months} = require("../../Controllers/Admin/Dashboard")
@@ -45,12 +51,13 @@ AdminRoutes.post("/deleteAdmin",adminAuth ,deleteAdminAccount);
 AdminRoutes.post("/createNewAdmin",adminAuth ,createNewAdmin);
 
 // routes for Random
-const {addRandomDriver, fetchRandomDriver, fetchRandomData, deleteRandomEntry, updateRandomStatus} = require("../../Controllers/Admin/Random")
+const {addRandomDriver, fetchRandomDriver, fetchRandomData, deleteRandomEntry, updateRandomStatus, sendEmailToRandomDriver} = require("../../Controllers/Admin/Random")
 AdminRoutes.post("/addRandomDriver",adminAuth ,addRandomDriver);
 AdminRoutes.get("/fetchRandomDriver",adminAuth ,fetchRandomDriver);
 AdminRoutes.get("/fetchRandomData",adminAuth ,fetchRandomData);
 AdminRoutes.post("/deleteRandomDriver",adminAuth ,deleteRandomEntry);
 AdminRoutes.post("/updateRandomStatus",adminAuth ,updateRandomStatus);
+AdminRoutes.post("/sendEmailToRandomDriver",adminAuth ,sendEmailToRandomDriver);
 
 
 //export routes
@@ -102,7 +109,7 @@ AdminRoutes.post("/deleteNote",adminAuth, deleteNote);
 
 
 // routes for settings
-const {updateSendWelcomeEmail, updateSendCustomerPDF, updateSendAgreementPDF, updateSendCertificatePDF, updateOrgIdAndLocationCode, getSettings} = require("../../Controllers/Admin/setting");
+const {updateSendWelcomeEmail, updateSendCustomerPDF, updateSendAgreementPDF, updateSendCertificatePDF, updateOrgIdAndLocationCode, getSettings} = require("../../Controllers/Admin/Setting");
 
 AdminRoutes.post("/updateSendWelcomeEmail", adminAuth, updateSendWelcomeEmail);
 AdminRoutes.post("/updateSendCustomerPDF", adminAuth, updateSendCustomerPDF);

@@ -8,7 +8,7 @@ const newAdmin = async ({ email, resetToken, Name }) => {
         const resetLink = `http://localhost:3000/resetPassword?token=${resetToken}&email=${email}`;
 
         await transporter.sendMail({
-            from: process.env.SMTP_USER,
+            from: `Nationwide Drug Centers (NDC) <${process.env.SMTP_USER}>`,
             to: email,
             subject: "Password Reset Link",
             html: `

@@ -4,6 +4,7 @@ const axios = require("axios");
 const transporter = require("./Transpoter");
 const path = require("path");
 const User = require("../../database/User");
+const Certificate = require("../../database/Certificate")
 
 const generateCertificate = async (userData, id) => {
   const doc = new PDFDocument({
@@ -11,7 +12,7 @@ const generateCertificate = async (userData, id) => {
     margins: { top: 50, bottom: 50, left: 72, right: 72 }
   });
 
-  const outputPath = path.join(__dirname, "temp", "certificate.pdf");
+  const outputPath = path.join(__dirname, "certificate.pdf");
 
   // Ensure the temp folder exists
   if (!fs.existsSync(path.dirname(outputPath))) {
@@ -22,7 +23,7 @@ const generateCertificate = async (userData, id) => {
   doc.pipe(stream);
 
   const companyName = userData.companyInfoData.companyName;
-  const startDate =  new Date() || "N/A";
+  const startDate = new Date() || "N/A";
 
   // Move down before starting
   doc.moveDown(10);
@@ -111,57 +112,33 @@ const generateCertificate = async (userData, id) => {
   stream.on("finish", async () => {
     await sendEmailWithPDF(outputPath, userData.contactInfoData.email, companyName, id);
 
-    // Optional: Delete the file after sending email
-    fs.unlink(outputPath, (err) => {
-      if (err) console.error("Error deleting certificate:", err);
-    });
   });
 };
 
 
 // Function to send email with the PDF attachment
-const sendEmailWithPDF = async (pdfPath, recipientEmail, companyName,userId) => {
-
-  // Email options
-  const mailOptions = {
-    from: "your-email@gmail.com", // Sender address
-    to: recipientEmail,           // Recipient's email address
-    subject: `Certificate - ${companyName}`, // Subject line
-    text: "Please find attached Certificate.", // Plain text body
-    attachments: [
-      {
-        filename: `${companyName}.pdf`, // Name of the file attached
-        path: pdfPath,          // Path to the generated PDF
-      },
-    ],
-  };
-
+const sendEmailWithPDF = async (pdfPath, recipientEmail, companyName, userId) => {
   try {
-    // Send email
-    await transporter.sendMail(mailOptions);
-
-    // Read PDF as buffer
+    // 2. Read PDF as buffer
     const fileBuffer = fs.readFileSync(pdfPath);
-
+    // 3. Set certificate dates
     const issueDate = new Date();
     const expirationDate = new Date();
     expirationDate.setFullYear(issueDate.getFullYear() + 1);
 
-    await User.findByIdAndUpdate(userId, {
-      $push: {
-        certificates: {
-          description: "Certificate",
-          issueDate: issueDate,
-          expirationDate: expirationDate,
-          certificateFile: fileBuffer,
-          filename: `${companyName}.pdf`,
-          mimeType: 'application/pdf',
-        }
-      }
+    // 4. Create new certificate (not $push into user!)
+    await Certificate.create({
+      user: userId, // Link certificate to user
+      description: "Certificate",
+      issueDate: issueDate,
+      expirationDate: expirationDate,
+      certificateFile: fileBuffer,
+      filename: `${companyName}.pdf`,
+      mimeType: 'application/pdf',
     });
 
   } catch (error) {
-    console.error("Error sending email: ", error);
+    console.error("Error sending email or saving certificate: ", error);
   }
 };
 

@@ -4,11 +4,12 @@ const path = require("path");
 const axios = require("axios");
 const transporter = require("./Transpoter")
 const User = require("../../database/User");
+const Document = require("../../database/Document")
 
 const createCustomPDF = async (userData, id) => {
     const email = userData.contactInfoData.email;
     const doc = new PDFDocument({ size: "A4", margin: 10 });
-    const outputPath = path.join(__dirname, "temp", "custom.pdf");
+    const outputPath = path.join(__dirname, "custom.pdf");
 
     if (!fs.existsSync(path.dirname(outputPath))) {
         fs.mkdirSync(path.dirname(outputPath));
@@ -433,51 +434,27 @@ const createCustomPDF = async (userData, id) => {
     stream.on("finish", async () => {
         // Send the PDF via email once it's created
         await sendEmailWithPDF(outputPath, email, userData.companyInfoData.companyName, id);
-        // Optional: Delete the file after sending email
-        fs.unlink(outputPath, (err) => {
-            if (err) console.error("Error deleting certificate:", err);
-        });
     });
 };
 
 // Function to send email with the PDF attachment
 const sendEmailWithPDF = async (pdfPath, recipientEmail, companyName, userId) => {
-
-    // Email options
-    const mailOptions = {
-        from: "your-email@gmail.com", // Sender address
-        to: recipientEmail,           // Recipient's email address
-        subject: `New Client Sign-Up Form - ${companyName}`, // Subject line
-        text: "Please find attached the signed-up form.", // Plain text body
-        attachments: [
-            {
-                filename: `${companyName}.pdf`, // Name of the file attached
-                path: pdfPath,          // Path to the generated PDF
-            },
-        ],
-    };
-
     try {
-        // Send email
-        // await transporter.sendMail(mailOptions);
 
-        // Read PDF as buffer
+        // 2. Read PDF as buffer
         const fileBuffer = fs.readFileSync(pdfPath);
 
-        // Save to user's documents
-        await User.findByIdAndUpdate(userId, {
-            $push: {
-                documents: {
-                    description: `Signup form`,
-                    date: new Date(),
-                    documentFile: fileBuffer,
-                    filename: `${companyName}.pdf`,
-                    mimeType: 'application/pdf',
-                }
-            }
+        // 3. Save as new document record (not $push in User)
+        await Document.create({
+            user: userId, // Reference to the User
+            description: "Signup form",
+            date: new Date(),
+            documentFile: fileBuffer,
+            filename: `${companyName}.pdf`,
+            mimeType: 'application/pdf',
         });
     } catch (error) {
-        console.error("Error sending email: ", error);
+        console.error("Error sending email or saving document: ", error);
     }
 };
 

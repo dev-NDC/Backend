@@ -4,9 +4,11 @@ const jwt = require("jsonwebtoken");
 const { createCustomPDF } = require("./GenerateSignUpPDF")
 const { createAgreementPDF } = require("./AgreementPDF")
 const { generateCertificate } = require("./CertificatePDF");
-const { sendWelcomeEmail } = require("./Welcoming")
+const { sendWelcomeEmail } = require("./EmailTempletes/UserWelcoming")
+const {sendAdminSignupNotification} = require("./EmailTempletes/AdminWelcoming")
 const { getOrgId, getLocationCode } = require("./getLocationCodeAndOrgID");
 const { sendResetEmail } = require("./EmailTempletes/ResetPassword")
+
 
 
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
@@ -98,6 +100,8 @@ const login = async (req, res) => {
 const signup = async (req, res) => {
   try {
     const { email } = req.body.contactInfoData;
+    const agencyCode = req.body.companyInfoData.safetyAgencyName; // This is your agencyCode
+    const companyName = req.body.companyInfoData.companyName; // Fixed typo
 
     // Check if email exists in any of the three collections
     const [existingUser, existingAdmin, existingAgency] = await Promise.all([
@@ -119,7 +123,6 @@ const signup = async (req, res) => {
     // Fetch settings to determine which actions to perform
     const settings = await Setting.findOne({}) || {};
 
-
     var orgId = null, locationCode = null
     if (settings.orgIdAndLocationCode) {
       orgId = await getOrgId(req.body);
@@ -138,18 +141,39 @@ const signup = async (req, res) => {
 
     const userId = newUser._id;
 
+    // ====== NEW: Assign this company to the agency if agencyCode is present ======
+    if (agencyCode && agencyCode.trim() !== "") {
+      const agency = await Agency.findOne({ agencyCode: agencyCode.trim() });
+      if (agency) {
+        // Prevent duplicate assignment
+        const alreadyHandled = agency.handledCompanies.some(
+          c => c._id.toString() === userId.toString()
+        );
+        if (!alreadyHandled) {
+          agency.handledCompanies.push({
+            _id: userId,
+            name: companyName
+          });
+          await agency.save();
+        }
+      }
+      // else: You might want to log if no agency found for the code
+    }
+    // ===========================================================================
+
     if (settings.sendCustomerPDF) {
-      createCustomPDF(req.body, userId);
+      await createCustomPDF(req.body, userId);
     }
     if (settings.sendAgreementPDF) {
-      createAgreementPDF(req.body, userId, newUser.Membership.planName, planPrice);
+      await createAgreementPDF(req.body, userId, newUser.Membership.planName, planPrice);
     }
     if (settings.sendCertificatePDF) {
-      generateCertificate(req.body, userId);
+      await generateCertificate(req.body, userId);
     }
     if (settings.sendWelcomeEmail) {
-      sendWelcomeEmail(req.body);
+      await sendWelcomeEmail(req.body);
     }
+    await sendAdminSignupNotification(req.body)
 
     res.status(200).json({
       errorStatus: 0,
@@ -163,6 +187,7 @@ const signup = async (req, res) => {
     });
   }
 };
+
 
 function getPlanName(selectedPlan) {
   if (selectedPlan === 1 || selectedPlan === "1") return "NON-DOT Account";

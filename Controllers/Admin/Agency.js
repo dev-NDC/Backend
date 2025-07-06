@@ -2,7 +2,7 @@ const User = require("../../database/User");
 const Agency = require("../../database/Agency");
 const Admin = require("../../database/Admin");
 
-const transporter = require("./Transpoter")
+const { newAgencyEmail } = require("./EmailTempletes/NewAgency")
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 
@@ -21,7 +21,7 @@ const getCompanyList = async (req, res) => {
                 userId: u._id,
                 companyName: u.companyInfoData.companyName
             }));
-        
+
         // Sort companies alphabetically by companyName
         companies.sort((a, b) => a.companyName.localeCompare(b.companyName));
 
@@ -122,52 +122,52 @@ const getSingleAgencyData = async (req, res) => {
 
 
 const updateAgencyData = async (req, res) => {
-  try {
-    const { data } = req.body;
-    const currentId = data._id;
+    try {
+        const { data } = req.body;
+        const currentId = data._id;
 
-    // Find agency by ID in the Agency collection
-    const agency = await Agency.findById(currentId);
+        // Find agency by ID in the Agency collection
+        const agency = await Agency.findById(currentId);
 
-    if (!agency) {
-      return res.status(404).json({
-        errorStatus: 1,
-        message: "Agency not found",
-      });
+        if (!agency) {
+            return res.status(404).json({
+                errorStatus: 1,
+                message: "Agency not found",
+            });
+        }
+
+        // Update agency fields
+        agency.name = data.agencyName;
+        agency.email = data.agencyEmail;
+        agency.contactNumber = data.agencyContactNumber;
+
+        // Validate handled companies (User collection)
+        const handledUserIds = data.handledCompanies.map(c => c.userId);
+
+        const validUsers = await User.find({
+            _id: { $in: handledUserIds }
+        }).select('_id companyInfoData.companyName');
+
+        // Store handled companies with _id and name
+        agency.handledCompanies = validUsers.map(u => ({
+            _id: u._id,
+            name: u.companyInfoData?.companyName || 'Unnamed Company',
+        }));
+
+        await agency.save();
+
+        res.status(200).json({
+            errorStatus: 0,
+            message: "Agency information saved successfully",
+        });
+    } catch (error) {
+        console.error("updateAgencyData error:", error);
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Failed to save information",
+            error: error.message,
+        });
     }
-
-    // Update agency fields
-    agency.name = data.agencyName;
-    agency.email = data.agencyEmail;
-    agency.contactNumber = data.agencyContactNumber;
-
-    // Validate handled companies (User collection)
-    const handledUserIds = data.handledCompanies.map(c => c.userId);
-
-    const validUsers = await User.find({
-      _id: { $in: handledUserIds }
-    }).select('_id companyInfoData.companyName');
-
-    // Store handled companies with _id and name
-    agency.handledCompanies = validUsers.map(u => ({
-      _id: u._id,
-      name: u.companyInfoData?.companyName || 'Unnamed Company',
-    }));
-
-    await agency.save();
-
-    res.status(200).json({
-      errorStatus: 0,
-      message: "Agency information saved successfully",
-    });
-  } catch (error) {
-    console.error("updateAgencyData error:", error);
-    res.status(500).json({
-      errorStatus: 1,
-      message: "Failed to save information",
-      error: error.message,
-    });
-  }
 };
 
 
@@ -214,23 +214,8 @@ const createNewAgency = async (req, res) => {
             agencyCode,
         });
 
-        const resetLink = `http://localhost:3000/resetPassword?token=${resetToken}&email=${email}`;
-
-        // Send reset email
-        await transporter.sendMail({
-            from: process.env.SMTP_USER,
-            to: email,
-            subject: "Set Your Password",
-            html: `
-        <h3>Welcome to the Agency Portal</h3>
-        <p>You have been registered as an agency user.</p>
-        <p>Your agency code: <strong>${agencyCode}</strong></p>
-        <p>Please set your password using the link below:</p>
-        <a href="${resetLink}">${resetLink}</a>
-        <p>This link will expire in 1 hour.</p>
-      `,
-        });
-
+        // sent mail
+        await newAgencyEmail(email, resetToken, agencyName)
         await newAgency.save();
 
         res.status(201).json({

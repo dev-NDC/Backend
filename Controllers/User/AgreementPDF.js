@@ -5,6 +5,7 @@ const axios = require("axios");
 const transporter = require("./Transpoter")
 
 const User = require("../../database/User");
+const Document = require("../../database/Document")
 
 const createAgreementPDF = async (userData, id, planName, planPrice) => {
     const pageMargin = 30; // Same margin on all sides
@@ -688,10 +689,6 @@ regulatory requirements.`);
     stream.on("finish", async () => {
         // Send the PDF via email once it's created
         await sendEmailWithPDF(outputPath, userData.contactInfoData.email, userData.companyInfoData.companyName,id);
-        // Optional: Delete the file after sending email
-        fs.unlink(outputPath, (err) => {
-            if (err) console.error("Error deleting certificate:", err);
-        });
     });
 };
 
@@ -699,41 +696,24 @@ regulatory requirements.`);
 // Function to send email with the PDF attachment
 const sendEmailWithPDF = async (pdfPath, recipientEmail, companyName, userId) => {
 
-    // Email options
-    const mailOptions = {
-        from: "your-email@gmail.com", // Sender address
-        to: recipientEmail,           // Recipient's email address
-        subject: `Agreement - ${companyName}`, // Subject line
-        text: "Please find attached Agreement.", // Plain text body
-        attachments: [
-            {
-                filename: `${companyName}.pdf`, // Name of the file attached
-                path: pdfPath,          // Path to the generated PDF
-            },
-        ],
-    };
-
     try {
-        // Send email
-        await transporter.sendMail(mailOptions);
 
-        // Read PDF as buffer
+        // 2. Read the PDF as a buffer
         const fileBuffer = fs.readFileSync(pdfPath);
 
-        // Save to user's documents
-        await User.findByIdAndUpdate(userId, {
-            $push: {
-                documents: {
-                    description: `Agreement`,
-                    date: new Date(),
-                    documentFile: fileBuffer,
-                    filename: `${companyName}.pdf`,
-                    mimeType: 'application/pdf',
-                }
-            }
+        // 3. Save the document as a new row in the Document collection
+        await Document.create({
+            user: userId,  // Link the document to the User
+            description: "Agreement",
+            date: new Date(),
+            documentFile: fileBuffer,
+            filename: `${companyName}.pdf`,
+            mimeType: 'application/pdf',
         });
+
     } catch (error) {
-        console.error("Error sending email: ", error);
+        console.error("Error sending email or saving document:", error);
+        // Optional: throw or return a result if you want to propagate the error
     }
 };
 
