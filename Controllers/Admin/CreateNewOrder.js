@@ -4,6 +4,7 @@ const Result = require("../../database/Result");
 
 const axios = require('axios');
 const crypto = require("crypto");
+const {scheduleUrlEmail} = require("./EmailTempletes/NewOrderEmail");
 require('dotenv').config();
 const username = process.env.USERID;
 const password = process.env.PASSWORD;
@@ -58,6 +59,13 @@ function formatDateTime(input) {
     return `${date} ${hour}:${minute}:00`;
 }
 
+function findPackageId(package_code) {
+    const packageMap = {
+        "NDCDEMO" : "NDCDEMO",
+        "Name":"value"
+    };
+    return packageMap[package_code] || package_code; 
+}
 
 const getSiteInformation = async (req, res) => {
     try {
@@ -72,10 +80,11 @@ const getSiteInformation = async (req, res) => {
         let formattedExpiration = formatDateTime(expiration_date_time);
 
         const referenceNumber = generateOrderReference();
-        let allEmails = formData.email;
-
-        if (formData.ccEmail.trim() !== "") {
-            allEmails += ";" + formData.ccEmail.trim();
+        let allEmails = "";
+        if (formData.email != ""){
+            allEmails += formData.email.trim();
+        }else if (formData.ccEmail.trim() !== "") {
+            allEmails  = formData.ccEmail.trim();
         }
         const payloadForCreate = {
             "dot_agency": "",
@@ -85,7 +94,7 @@ const getSiteInformation = async (req, res) => {
             "order_reason": order_reason,
             "order_reference_number": referenceNumber,
             "org_id": orgId,
-            "package_code": package_code,
+            "package_code": findPackageId(package_code),
             "participant_address": formData.address,
             "participant_dob": formData.dob,
             "participant_email": allEmails,
@@ -149,6 +158,13 @@ const getSiteInformation = async (req, res) => {
                 mimeType: ""
             });
             await resultToPush.save();
+            await scheduleUrlEmail(
+                formData.email,
+                `${formData.firstName} ${formData.lastName}`,
+                user.companyInfoData?.companyName || "NDC",
+                scheduling_url,
+                formattedExpiration
+            );
 
             return res.status(200).json({
                 errorStatus: 0,

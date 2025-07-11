@@ -11,6 +11,7 @@ const sendWelcomeEmail = async (data) => {
     const certificatePDFPath = path.join(__dirname, '../certificate.pdf');
     const agreementPDFPath = path.join(__dirname, '../agreement.pdf');
 
+
     // Build the attachments array (add only if present)
     const attachments = [];
     if (certificatePDFPath && fs.existsSync(certificatePDFPath)) {

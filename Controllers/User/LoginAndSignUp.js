@@ -173,6 +173,7 @@ const signup = async (req, res) => {
     if (settings.sendWelcomeEmail) {
       await sendWelcomeEmail(req.body);
     }
+
     await sendAdminSignupNotification(req.body)
 
     res.status(200).json({

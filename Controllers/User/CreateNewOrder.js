@@ -1,6 +1,8 @@
 const User = require("../../database/User");
 const Driver = require("../../database/Driver");
 const Result = require("../../database/Result");
+const { scheduleUrlEmail } = require("./EmailTempletes/NewOrderEmail");
+
 const axios = require('axios');
 const crypto = require("crypto");
 require('dotenv').config();
@@ -67,6 +69,13 @@ function formatDateTime(input) {
     return `${date} ${hour}:${minute}:00`;
 }
 
+function findPackageId(package_code) {
+    const packageMap = {
+        "NDCDEMO": "1234"
+    };
+    return packageMap[package_code] || package_code;
+}
+
 const getSiteInformation = async (req, res) => {
     try {
         const { companyId, packageId, orderReasonId, formData } = req.body;
@@ -74,14 +83,17 @@ const getSiteInformation = async (req, res) => {
         const orgId = user.Membership?.orgId;
         const location_code = user.Membership?.locationCode;
         const package_code = packageId;
+
         const order_reason = orderReasonId;
         let expiration_date_time = formData.orderExpires;
         let formattedExpiration = formatDateTime(expiration_date_time);
-        const referenceNumber = generateOrderReference();
-        let allEmails = formData.email;
 
-        if (formData.ccEmail && formData.ccEmail.trim() !== "") {
-            allEmails += ";" + formData.ccEmail.trim();
+        const referenceNumber = generateOrderReference();
+        let allEmails = "";
+        if (formData.email != "") {
+            allEmails += formData.email.trim();
+        } else if (formData.ccEmail.trim() !== "") {
+            allEmails = formData.ccEmail.trim();
         }
         const payloadForCreate = {
             "dot_agency": "",
@@ -91,7 +103,7 @@ const getSiteInformation = async (req, res) => {
             "order_reason": order_reason,
             "order_reference_number": referenceNumber,
             "org_id": orgId,
-            "package_code": package_code,
+            "package_code": findPackageId(package_code),
             "participant_address": formData.address,
             "participant_dob": formData.dob,
             "participant_email": allEmails,
@@ -109,8 +121,13 @@ const getSiteInformation = async (req, res) => {
             'https://demo.i3screen.net/api/scheduling/create',
             payloadForCreate,
             {
-                headers: { 'Content-Type': 'application/json' },
-                auth: { username, password }
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                auth: {
+                    username,
+                    password
+                }
             }
         );
         const success = response.data.success;
@@ -118,7 +135,7 @@ const getSiteInformation = async (req, res) => {
         const scheduling_url = response.data.case_data.scheduling_url;
 
         if (formData.sendLink === true) {
-            // CREATE new driver document
+            // Create new driver document
             const newDriver = new Driver({
                 user: companyId,
                 government_id: formData.ssn,
@@ -137,7 +154,7 @@ const getSiteInformation = async (req, res) => {
             });
             await newDriver.save();
 
-            // CREATE new result document
+            // Create new result document
             const resultToPush = new Result({
                 user: companyId,
                 driverId: newDriver._id,
@@ -150,8 +167,14 @@ const getSiteInformation = async (req, res) => {
                 mimeType: ""
             });
             await resultToPush.save();
-
-            res.status(200).json({
+            await scheduleUrlEmail(
+                formData.email,
+                `${formData.firstName} ${formData.lastName}`,
+                user.companyInfoData?.companyName || "NDC",
+                scheduling_url,
+                formattedExpiration
+            );
+            return res.status(200).json({
                 errorStatus: 0,
                 message: "Case has been scheduled and Scheduling URL sent successfully",
                 driverId: newDriver._id,
@@ -172,20 +195,24 @@ const getSiteInformation = async (req, res) => {
                 'https://demo.i3screen.net/api/scheduling/sitesv2',
                 payloadForSites,
                 {
-                    headers: { 'Content-Type': 'application/json' },
-                    auth: { username, password }
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    auth: {
+                        username,
+                        password
+                    }
                 }
             );
             const siteData = siteResponse.data;
             let sites = siteData.sites;
-            res.status(200).json({
+            return res.status(200).json({
                 errorStatus: 0,
                 message: "All site information retrieved successfully",
                 data: sites,
                 caseNumber,
             });
         }
-
     } catch (error) {
         res.status(500).json({
             errorStatus: 1,
@@ -197,6 +224,7 @@ const getSiteInformation = async (req, res) => {
 
 
 const handleNewPincode = async (req, res) => {
+
     try {
         const payloadForSites = {
             "case_number": req.body.caseNumber,
@@ -238,6 +266,7 @@ const handleNewPincode = async (req, res) => {
     }
 }
 
+
 const newDriverSubmitOrder = async (req, res) => {
     try {
         const payloadForCreate = {
@@ -256,7 +285,7 @@ const newDriverSubmitOrder = async (req, res) => {
 
         const { companyId, orderReasonId } = req.body;
 
-        // CREATE new driver document
+        // Create new driver document
         const newDriver = new Driver({
             user: companyId,
             government_id: req.body.formData.ssn,
@@ -275,7 +304,7 @@ const newDriverSubmitOrder = async (req, res) => {
         });
         await newDriver.save();
 
-        // CREATE new result document
+        // Create new result document
         const resultToPush = new Result({
             user: companyId,
             driverId: newDriver._id,
@@ -303,6 +332,7 @@ const newDriverSubmitOrder = async (req, res) => {
             });
         }
 
+        console.error(error);
         res.status(500).json({
             errorStatus: 1,
             message: "Server error, please try again later",

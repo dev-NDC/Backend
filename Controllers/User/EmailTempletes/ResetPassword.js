@@ -5,7 +5,7 @@ const path = require('path');
 
 const sendResetEmail = async ({ email, resetToken, Name, CompanyName}) => {
     try {
-        const resetLink = `http://localhost:3000/resetPassword?token=${resetToken}&email=${email}`;
+        const resetLink = `https://nwdrugtesting.com/resetPassword?token=${resetToken}&email=${email}`;
 
         await transporter.sendMail({
             from: `Nationwide Drug Centers (NDC) <${process.env.SMTP_USER}>`,
