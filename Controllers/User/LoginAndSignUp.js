@@ -19,7 +19,8 @@ const Setting = require("../../database/Setting")
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const {password } = req.body;
+    const email = (req.body.email).toLowerCase();
 
     let foundUser = null;
     let role = null;
@@ -99,7 +100,7 @@ const login = async (req, res) => {
 
 const signup = async (req, res) => {
   try {
-    const { email } = req.body.contactInfoData;
+    const  email  = (req.body.contactInfoData.email).toLowerCase();
     const agencyCode = req.body.companyInfoData.safetyAgencyName; // This is your agencyCode
     const companyName = req.body.companyInfoData.companyName; // Fixed typo
 
@@ -131,6 +132,7 @@ const signup = async (req, res) => {
       }
     }
     const planPrice = req.body.Membership.selectedPlan === 1 ? 99 : req.body.Membership.selectedPlan === 2 ? 150 : 275;
+    newUser.contactInfoData.email = email.toLowerCase();
     newUser.Membership.orgId = orgId;
     newUser.Membership.locationCode = locationCode;
     newUser.Membership.planName = getPlanName(req.body.Membership.selectedPlan);

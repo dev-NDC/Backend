@@ -1,4 +1,5 @@
 const User = require("../../database/User");
+const Driver = require("../../database/Driver");
 const isCompanyHandledByAgency = require("./checkAgencyPermission");
 
 
@@ -33,26 +34,24 @@ const AddDriver = async (req, res) => {
             });
         }
 
-        // Create new driver object
-        const newDriver = {
+        // Create and save driver document
+        const newDriver = new Driver({
+            user: userId,
             first_name: firstName,
             last_name: lastName,
             email,
             government_id: license,
             dob,
             phone,
-            creationDate: new Date().toISOString(), // Current date
+            creationDate: new Date().toISOString(),
             isActive: true,
-            createdBy: "Agency", // Set createdBy to Customer
-            deletionDate: null, // Leave empty
+            createdBy: "Admin",
+            deletionDate: null,
             isDeleted: false
-        };
+        });
 
-        // Push driver to user's `drivers` array
-        user.drivers.push(newDriver);
-
-        // Save updated user document
-        await user.save();
+        await newDriver.save();
+        
         res.status(201).json({
             errorStatus: 0,
             message: "Driver added successfully",
@@ -87,27 +86,19 @@ const updateDriver = async (req, res) => {
             });
         }
 
-        const { _id, ...otherFields } = driverData;
-
-        // Prepare update fields for the specific driver in the array
-        const updateFields = {};
-        for (const [key, value] of Object.entries(otherFields)) {
-            updateFields[`drivers.$.${key}`] = value;
-        }
-
-        const user = await User.findOneAndUpdate(
-            { _id: userId, "drivers._id": _id },
-            { $set: updateFields },
+        // Find and update driver (must match user for security)
+        const updatedDriver = await Driver.findOneAndUpdate(
+            { _id: driverData._id, user: userId, isDeleted: false },
+            { $set: { ...driverData, updatedAt: new Date() } },
             { new: true }
         );
 
-        if (!user) {
+        if (!updatedDriver) {
             return res.status(404).json({
                 errorStatus: 1,
-                message: "User or driver not found",
+                message: "Driver not found",
             });
         }
-
         res.status(200).json({
             errorStatus: 0,
             message: "Driver updated successfully",
@@ -124,6 +115,7 @@ const updateDriver = async (req, res) => {
 
 
 const deleteDriver = async (req, res) => {
+    console.log("Delete Driver API called");
     try {
         const driverId = req.body.driver._id;  // Change this to match your body structure
         const userId = req.body.currentId;   // Ensure the current user ID is coming from req.user (authentication)
@@ -143,14 +135,13 @@ const deleteDriver = async (req, res) => {
                 message: "Driver ID is required",
             });
         }
-
-        const updatedUser = await User.findOneAndUpdate(
-            { _id: userId, "drivers._id": driverId },
+        const updatedUser = await Driver.findOneAndUpdate(
+            { _id: driverId, user: userId, isDeleted: false },
             {
                 $set: {
-                    "drivers.$.isDeleted": true,
-                    "drivers.$.deletionDate": new Date().toISOString(),
-                    "drivers.$.deletedBy": "Agency",
+                    isDeleted: true,
+                    deletionDate: new Date().toISOString(),
+                    deletedBy: "Agency",
                 },
             },
             { new: true }

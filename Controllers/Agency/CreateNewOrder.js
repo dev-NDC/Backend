@@ -82,7 +82,14 @@ function formatDateTime(input) {
 
 function findPackageId(package_code) {
     const packageMap = {
-        "NDCDEMO": "1234"
+        "NDCDEMO": "NDCDEMO",
+        "5 PANEL URINE DOT LIKE": "5UDL",
+        "7 PANEL URINE": "7U",
+        "9 PANEL URINE": "9U",
+        "DOT BAT": "DOTBAT",
+        "DOT PANEL": "DOTU",
+        "DOT PANEL + DOT BAT": "DOTUBAT",
+        "DOT PHYSICAL": "DOTPHY"
     };
     return packageMap[package_code] || package_code;
 }
@@ -129,7 +136,7 @@ const getSiteInformation = async (req, res) => {
         };
 
         const response = await axios.post(
-            'https://demo.i3screen.net/api/scheduling/create',
+            'https://ws.i3screen.net/api/scheduling/create',
             payloadForCreate,
             {
                 headers: {
@@ -203,7 +210,7 @@ const getSiteInformation = async (req, res) => {
                 "show_price": "0"
             };
             const siteResponse = await axios.post(
-                'https://demo.i3screen.net/api/scheduling/sitesv2',
+                'https://ws.i3screen.net/api/scheduling/sitesv2',
                 payloadForSites,
                 {
                     headers: {
@@ -248,7 +255,7 @@ const handleNewPincode = async (req, res) => {
             "show_price": "0"
         }
         const siteResponse = await axios.post(
-            'https://demo.i3screen.net/api/scheduling/sitesv2',
+            'https://ws.i3screen.net/api/scheduling/sitesv2',
             payloadForSites,
             {
                 headers: {
@@ -286,7 +293,7 @@ const newDriverSubmitOrder = async (req, res) => {
         };
 
         const response = await axios.post(
-            "https://demo.i3screen.net/api/scheduling/schedule",
+            "https://ws.i3screen.net/api/scheduling/schedule",
             payloadForCreate,
             {
                 headers: { "Content-Type": "application/json" },
