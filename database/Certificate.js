@@ -10,4 +10,14 @@ const certificateSchema = new mongoose.Schema({
   mimeType: String,
 }, { timestamps: true });
 
+certificateSchema.set("toJSON", {
+  transform: function (doc, ret) {
+    if (ret.certificateFile) {
+      ret.certificateFile = ret.certificateFile.toString("base64");
+    }
+    return ret;
+  },
+});
+
+
 module.exports = mongoose.model("Certificate", certificateSchema);

@@ -1,7 +1,6 @@
 const transporter = require("../Transpoter")
 
-
-const newAgencyEmail = async (email, resetToken, Name ) => {
+const newAgencyEmail = async (email, resetToken, Name) => {
     try {
         const resetLink = `https://nwdrugtesting.com/resetPassword?token=${resetToken}&email=${email}`;
 
@@ -36,11 +35,8 @@ const newAgencyEmail = async (email, resetToken, Name ) => {
             `
         });
     } catch (error) {
-        console.log(error)
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Unable to sent password link, please try again later"
-        })
+        console.log("Email sending error:", error);
+        throw new Error("Failed to send reset email"); // Let parent catch this
     }
 };
 

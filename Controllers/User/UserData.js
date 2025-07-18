@@ -9,12 +9,14 @@ const userData = async (req, res) => {
     try {
         const id = req.user.id;
         const data = await User.findById(id).select("-contactInfoData.password -_id");
+
         if (!data) {
             return res.status(404).json({
                 errorStatus: 1,
                 message: "User not found"
             });
         }
+
         const userObj = data.toObject();
 
         // Fetch all related collections
@@ -42,12 +44,30 @@ const userData = async (req, res) => {
             };
         });
 
-        // Attach all fetched details to user object
+        // Convert certificateFile to base64
+        const base64Certificates = certificates.map(cert => ({
+            ...cert.toObject(),
+            certificateFile: cert.certificateFile?.toString("base64"),
+        }));
+
+        // Convert invoice file to base64
+        const base64Invoices = invoices.map(invoice => ({
+            ...invoice.toObject(),
+            file: invoice.file?.toString("base64"),
+        }));
+
+        // Convert random files to base64 if needed (adjust if your Random schema has file fields)
+        const base64Randoms = randoms.map(random => ({
+            ...random.toObject(),
+            // Add any file-to-base64 conversion if random contains files
+        }));
+
+        // Attach all fetched and processed details
         userObj.drivers = drivers;
         userObj.results = enrichedResults;
-        userObj.certificates = certificates;
-        userObj.invoices = invoices;
-        userObj.randoms = randoms;
+        userObj.certificates = base64Certificates;
+        userObj.invoices = base64Invoices;
+        userObj.randoms = base64Randoms;
 
         res.status(200).json({
             errorStatus: 0,
@@ -57,12 +77,11 @@ const userData = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             errorStatus: 1,
-            message: "An unexpected error occurred. Please try again later."
+            message: "An unexpected error occurred. Please try again later",
+            error: error.message
         });
     }
 };
-
-
 
 
 const updateCompanyInformation = async (req, res) => {

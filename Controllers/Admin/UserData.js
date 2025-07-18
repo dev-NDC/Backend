@@ -80,7 +80,7 @@ const getSingleUserDetails = async (req, res) => {
             documents,
             randoms
         ] = await Promise.all([
-            Driver.find({ user: userId}),
+            Driver.find({ user: userId }),
             Result.find({ user: userId }),
             Invoice.find({ user: userId }),
             Certificate.find({ user: userId }),
@@ -102,13 +102,31 @@ const getSingleUserDetails = async (req, res) => {
             };
         });
 
-        // Prepare response object (merge related data for full details)
+        // Convert certificateFile to base64
+        const base64Certificates = certificates.map(cert => ({
+            ...cert.toObject(),
+            certificateFile: cert.certificateFile?.toString("base64"),
+        }));
+
+        // Convert invoice file to base64
+        const base64Invoices = invoices.map(invoice => ({
+            ...invoice.toObject(),
+            file: invoice.file?.toString("base64"),
+        }));
+
+        // Convert documentFile to base64
+        const base64Documents = documents.map(doc => ({
+            ...doc.toObject(),
+            documentFile: doc.documentFile?.toString("base64"),
+        }));
+
+        // Prepare response object
         const userObj = user.toObject();
         userObj.drivers = drivers;
         userObj.results = enrichedResults;
-        userObj.invoices = invoices;
-        userObj.certificates = certificates;
-        userObj.documents = documents;
+        userObj.invoices = base64Invoices;
+        userObj.certificates = base64Certificates;
+        userObj.documents = base64Documents;
         userObj.randoms = randoms;
 
         res.status(200).json({
@@ -125,6 +143,8 @@ const getSingleUserDetails = async (req, res) => {
         });
     }
 };
+
+
 
 
 

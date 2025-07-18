@@ -110,16 +110,16 @@ const getSingleUserDetails = async (req, res) => {
 
         const userObj = user.toObject();
 
-        // Fetch all related collections in parallel
+        // Fetch related collections
         const [drivers, results, certificates, invoices, randoms] = await Promise.all([
             Driver.find({ user: userId }),
             Result.find({ user: userId }),
             Certificate.find({ user: userId }),
             Invoice.find({ user: userId }),
-            Random.find({ "company._id": userId }), // Or Random.find({ user: userId }) if field is just 'user'
+            Random.find({ "company._id": userId }), // adjust based on actual schema
         ]);
 
-        // Map drivers for fast lookup
+        // Map drivers for result enrichment
         const driverMap = {};
         drivers.forEach(driver => {
             driverMap[driver._id.toString()] = driver;
@@ -135,11 +135,28 @@ const getSingleUserDetails = async (req, res) => {
             };
         });
 
+        // Convert Buffers to base64
+        const base64Certificates = certificates.map(cert => ({
+            ...cert.toObject(),
+            certificateFile: cert.certificateFile?.toString("base64"),
+        }));
+
+        const base64Invoices = invoices.map(invoice => ({
+            ...invoice.toObject(),
+            file: invoice.file?.toString("base64"),
+        }));
+
+        const base64Randoms = randoms.map(random => ({
+            ...random.toObject(),
+            // Add conversion if any Buffer fields exist in random schema
+        }));
+
+        // Assign processed data
         userObj.drivers = drivers;
         userObj.results = enrichedResults;
-        userObj.certificates = certificates;
-        userObj.invoices = invoices;
-        userObj.randoms = randoms;
+        userObj.certificates = base64Certificates;
+        userObj.invoices = base64Invoices;
+        userObj.randoms = base64Randoms;
 
         res.status(200).json({
             errorStatus: 0,
@@ -155,6 +172,7 @@ const getSingleUserDetails = async (req, res) => {
         });
     }
 };
+
 
 
 const updateCompanyInformation = async (req, res) => {
