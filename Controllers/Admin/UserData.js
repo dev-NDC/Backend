@@ -11,7 +11,7 @@ const getAllUserData = async (req, res) => {
         // Fetch all users (only needed fields)
         const users = await User.find(
             {},
-            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName Membership"
+            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName companyInfoData.usdot Membership"
         );
 
         // Get all driver counts by user in bulk to avoid N+1 queries
@@ -29,6 +29,7 @@ const getAllUserData = async (req, res) => {
             companyName: user.companyInfoData?.companyName || "N/A",
             companyEmail: user.companyInfoData?.companyEmail || "N/A",
             companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
+            companyUSDOTNumber: user.companyInfoData?.usdot || "N/A",
             activeDriversCount: driverCounts[user._id.toString()] || 0,
             status: user.Membership?.planStatus || "N/A",
             id: user._id
