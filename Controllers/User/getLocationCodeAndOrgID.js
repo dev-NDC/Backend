@@ -7,7 +7,7 @@ const username = process.env.USERID;
 const password = process.env.PASSWORD;
 
 const getOrgId = async (data) => {
-    const url = "https://uat.i3screen.net/web_services/Customer?wsdl";
+    const url = "https://www.i3screen.net/web_services/customer";
 
     const xmlPayload = `
     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:i3l="http://i3logix.com">
@@ -140,7 +140,7 @@ const getLocationCode = async (data, orgId) => {
 
     try {
         const response = await axios.post(
-            "https://uat.i3screen.net/web_services/Customer?wsdl",
+            "https://www.i3screen.net/web_services/customer",
             xmlPayload,
             {
                 headers: {
