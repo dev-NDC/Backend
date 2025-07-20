@@ -13,9 +13,6 @@ exports.updateCompanyInformationValidator = [
     body("companyEmail")
         .notEmpty().withMessage("Company email is required")
         .isEmail().withMessage("Invalid company email"),
-    body("employees")
-        .notEmpty().withMessage("Number of employees is required")
-        .isNumeric().withMessage("Employees must be a number"),
     body("address")
         .notEmpty().withMessage("Address is required"),
     body("suite")

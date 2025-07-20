@@ -70,10 +70,11 @@ const ChangeDriverCompany = async (req, res) => {
 
 
 const AddDriver = async (req, res) => {
+
     try {
         const { firstName, lastName, email, license, dob, phone } = req.body.driver;
         const userId = req.body.currentId;
-        if (!userId || !firstName || !lastName || !email || !license || !dob || !phone) {
+        if (!userId || !firstName || !lastName || !license || !dob) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "Please provide all required fields"
@@ -202,5 +203,42 @@ const deleteDriver = async (req, res) => {
     }
 };
 
+const permanentlyDeleteDriver = async (req, res) => {
+    try {
+        const driverId = req.body.driver._id;
+        const userId = req.body.driver.user;
+        if (!driverId) {
+            return res.status(400).json({
+                errorStatus: 1,
+                message: "Driver ID is required",
+            });
+        }
+        // Permanently delete driver
+        const deletedDriver = await Driver.findOneAndDelete({
+            _id: driverId,
+            user: userId,
+            isDeleted: true,
+        });
+        if (!deletedDriver) {
+            return res.status(404).json({
+                errorStatus: 1,
+                message: "Driver not found or not deleted",
+            });
+        }
+        // Delete result of the driver
+        await Result.deleteMany({ driverId: driverId, user: userId });
+        res.status(200).json({
+            errorStatus: 0,
+            message: "Driver permanently deleted successfully",
+        });
+    } catch (error) {
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Server error, please try again later",
+            error: error.message,
+        });
+    }
+}
 
-module.exports = { AddDriver, updateDriver, deleteDriver, allCompany, ChangeDriverCompany };
+
+module.exports = { AddDriver, updateDriver, deleteDriver, allCompany, ChangeDriverCompany, permanentlyDeleteDriver };

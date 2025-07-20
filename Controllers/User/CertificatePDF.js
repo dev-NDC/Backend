@@ -35,8 +35,9 @@ const generateCertificate = async (userData, id) => {
     } else {
       doc.moveDown(5); // Add extra space if no logo
     }
-
-    const companyName = userData.companyInfoData.companyName;
+    //add margin
+    doc.moveDown(5);
+    const companyName = userData?.companyInfoData?.companyName;
     // Format startDate as only date (YYYY-MM-DD)
     const startDate = new Date().toISOString().split("T")[0];
 
@@ -125,7 +126,7 @@ const generateCertificate = async (userData, id) => {
 
     // Wait for stream to finish before sending email
     stream.on("finish", async () => {
-      await sendEmailWithPDF(outputPath, userData.contactInfoData.email, companyName, id);
+      await sendEmailWithPDF(outputPath, userData?.contactInfoData?.email, companyName, id);
       resolve();
     });
     stream.on("error", (err) => {

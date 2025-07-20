@@ -38,11 +38,6 @@ exports.signupValidator = [
     body("companyInfoData.companyEmail")
         .notEmpty().withMessage("Company email is required")
         .isEmail().withMessage("Invalid company email"),
-    body("companyInfoData.safetyAgencyName")
-        .optional({ checkFalsy: true }),
-    body("companyInfoData.employees")
-        .notEmpty().withMessage("Number of employees is required")
-        .isNumeric().withMessage("Employees must be a number"),
     body("companyInfoData.address")
         .notEmpty().withMessage("Address is required"),
     body("companyInfoData.suite")
@@ -71,16 +66,6 @@ exports.signupValidator = [
     body("paymentData.billingZip")
         .notEmpty().withMessage("Billing Zip  is required")
         .isNumeric().withMessage("Billing Zip must be a number"),
-    body("paymentData.accountNumber")
-        .notEmpty().withMessage("Account number is required")
-        .isNumeric().withMessage("Account number must be a number"),
-    body("paymentData.routingNumber")
-        .notEmpty().withMessage("Routing number is required")
-        .isNumeric().withMessage("Routing number must be a number"),
-    body("paymentData.accountName")
-        .notEmpty().withMessage("Account holder name is required"),
-    body("paymentData.accountType")
-        .notEmpty().withMessage("Account type is required"),
 
     // Submit Form Info
     body("submitFormData.firstName")

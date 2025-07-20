@@ -19,10 +19,11 @@ AdminRoutes.post("/updateMembershipInformation",adminAuth ,updateMembershipInfor
 
 
 // routes for driver
-const {AddDriver, updateDriver, deleteDriver, allCompany, ChangeDriverCompany} = require("../../Controllers/Admin/Driver")
+const {AddDriver, updateDriver, deleteDriver, allCompany, ChangeDriverCompany, permanentlyDeleteDriver} = require("../../Controllers/Admin/Driver")
 AdminRoutes.post("/addDriver",adminAuth ,AddDriver);
 AdminRoutes.post("/updateDriver",adminAuth ,updateDriver);
 AdminRoutes.post("/deleteDriver",adminAuth ,deleteDriver);
+AdminRoutes.post("/permanentlyDeleteDriver",adminAuth ,permanentlyDeleteDriver);
 AdminRoutes.get("/allCompany",adminAuth ,allCompany);
 AdminRoutes.post("/changeDriverCompany",adminAuth ,ChangeDriverCompany);
 

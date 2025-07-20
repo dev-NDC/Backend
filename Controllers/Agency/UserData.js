@@ -32,7 +32,7 @@ const getAllUserData = async (req, res) => {
         // Fetch all users (companies) for this agency
         const users = await User.find(
             { _id: { $in: handledCompanyIds } },
-            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName Membership"
+            "_id companyInfoData.contactNumber companyInfoData.companyEmail companyInfoData.companyName companyInfoData.usdot Membership"
         );
 
         // Fetch all drivers for these companies in one go
@@ -50,6 +50,7 @@ const getAllUserData = async (req, res) => {
             companyEmail: user.companyInfoData?.companyEmail || "N/A",
             companyContactNumber: user.companyInfoData?.contactNumber || "N/A",
             activeDriversCount: driverCountMap[user._id.toString()] || 0,
+            companyUSDOTNumber: user.companyInfoData?.usdot || "N/A",
             status: user.Membership?.planStatus || "N/A",
             id: user._id
         }));

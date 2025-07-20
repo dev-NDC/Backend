@@ -9,7 +9,7 @@ const AddDriver = async (req, res) => {
         const userId = req.body.currentId;
         const agencyId = req.user.id;
 
-        if (!userId || userId == null || !firstName || !lastName || !email || !license || !dob || !phone) {
+        if (!userId || userId == null || !firstName || !lastName || !license || !dob) {
             return res.status(400).json({
                 errorStatus: 1,
                 message: "Please provide all required fields"
