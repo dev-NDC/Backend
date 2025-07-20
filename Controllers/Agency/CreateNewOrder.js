@@ -31,6 +31,7 @@ const getAllCompanyAllDetials = async (req, res) => {
         // 3. Fetch users with those IDs and role: User
         const companies = await User.find({
             _id: { $in: handledCompanyIds },
+            "Membership.planStatus": "Active"
         });
 
         // 4. Format response data
@@ -96,7 +97,7 @@ function findPackageId(package_code) {
 
 const getSiteInformation = async (req, res) => {
     try {
-        const { companyId, packageId, orderReasonId, formData } = req.body;
+        const { companyId, packageId, orderReasonId,dotAgency, formData } = req.body;
         const user = await User.findById(companyId);
         const orgId = user.Membership?.orgId;
         const location_code = user.Membership?.locationCode;
@@ -114,7 +115,7 @@ const getSiteInformation = async (req, res) => {
             allEmails = formData.ccEmail.trim();
         }
         const payloadForCreate = {
-            "dot_agency": "",
+            "dot_agency": dotAgency,
             "expiration_date_time": formattedExpiration,
             "lab_location_code": "",
             "location_code": location_code,
