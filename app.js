@@ -53,7 +53,7 @@ app.use("/api/random", RandomRoutes)
 
 // I3Screen Routes
 // Accept raw XML at the SOAP endpoint
-app.use('/api/i3Screen/I3screenListner', express.raw({ type: 'application/xml' }));
+app.use('/api/i3Screen/I3screenListner', express.raw({ type: 'application/xml', limit: '50mb' }));
 const resultRoutes = require("./Routes/Result/Result")
 app.use("/api/i3Screen", resultRoutes);
 
