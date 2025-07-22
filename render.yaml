@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: https://backend-pi8m.onrender.com
+    env: node
+    plan: Hobby  # or starter/pro
+    buildCommand: npm install
+    startCommand: node app.js
+    maxRequestBodySize: 52428800  # 50MB
