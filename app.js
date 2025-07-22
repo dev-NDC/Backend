@@ -12,7 +12,9 @@ require("./database/db");
 // Increase request payload limits
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
-app.use(bodyParser.text({ type: 'text/xml' }));
+//app.use(bodyParser.text({ type: 'text/xml' }));
+app.use(bodyParser.text({ type: 'text/xml', limit: '50mb' }));
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow all origins for now (but required when credentials are true)
