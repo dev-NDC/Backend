@@ -48,23 +48,16 @@ const uploadResult = async (req, res) => {
         const { currentId, driverId, caseNumber, date, testType, status } = req.body;
         const file = req.file;
 
-        if (!file) {
-            return res.status(400).json({
-                errorStatus: 1,
-                message: "No file uploaded",
-            });
-        }
-
         // Confirm user and driver exist
         const user = await User.findById(currentId);
         if (!user) {
             return res.status(404).json({ errorStatus: 1, message: "User not found" });
         }
+
         const driver = await Driver.findOne({ _id: driverId, user: currentId });
         if (!driver) {
             return res.status(404).json({ errorStatus: 1, message: "Driver not found" });
         }
-
         // Create and save result document
         const result = new Result({
             user: currentId,
@@ -73,9 +66,9 @@ const uploadResult = async (req, res) => {
             testType,
             status,
             caseNumber,
-            file: file.buffer,
-            filename: file.originalname,
-            mimeType: file.mimetype,
+            file: file?.buffer,
+            filename: file?.originalname,
+            mimeType: file?.mimetype,
         });
 
         await result.save();
@@ -89,6 +82,7 @@ const uploadResult = async (req, res) => {
             message: "Result uploaded successfully",
         });
     } catch (error) {
+        console.error("Error uploading result:", error);
         res.status(500).json({
             errorStatus: 1,
             message: "Server error while uploading result",
