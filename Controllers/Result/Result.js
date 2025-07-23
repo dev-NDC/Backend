@@ -54,11 +54,31 @@ const I3screenListner = async (req, res) => {
         const screening = report?.BackgroundReportPackage?.Screenings?.Screening;
         const status = screening?.ScreeningStatus?.OrderStatus || "UNKNOWN";
 
-        const imageNode = report?.BackgroundReportPackage?.SupportingDocumentation?.Documentation?.Image;
+        /*const imageNode = report?.BackgroundReportPackage?.SupportingDocumentation?.Documentation?.Image;
         const pdfBase64 = imageNode?._ || imageNode;
         const filename = imageNode?.$.fileName || "report.pdf";
         const mimeType = imageNode?.$.mediaType === "pdf" ? "application/pdf" : "application/octet-stream";
         const pdfBuffer = pdfBase64 ? Buffer.from(pdfBase64, "base64") : null;
+        */
+        // Normalize Image nodes to an array (even if single)
+        const imageNodes = [].concat(report?.BackgroundReportPackage?.SupportingDocumentation?.Documentation?.Image || []);
+
+        const pdfFiles = [];
+
+        for (const node of imageNodes) {
+            const base64 = node?._ || node;
+            const filename = node?.$.fileName || "report.pdf";
+            const mimeType = node?.$.mediaType === "pdf" ? "application/pdf" : "application/octet-stream";
+            const buffer = base64 ? Buffer.from(base64, "base64") : null;
+
+            if (buffer) {
+                pdfFiles.push({
+                    data: buffer,
+                    filename,
+                    mimeType,
+                });
+            }
+        }
 
         // 🔍 Find the result by caseNumber
         const resultDoc = await Result.findOne({ caseNumber: caseId });
@@ -79,11 +99,17 @@ const I3screenListner = async (req, res) => {
         }
 
         // ✏️ Update result
-        resultDoc.status = status;
+        /*resultDoc.status = status;
         if (pdfBuffer) {
             resultDoc.file = pdfBuffer;
             resultDoc.filename = filename;
             resultDoc.mimeType = mimeType;
+        }
+        await resultDoc.save();
+        */
+        resultDoc.status = status;
+        if (pdfFiles.length > 0) {
+            resultDoc.files = pdfFiles;
         }
         await resultDoc.save();
 
