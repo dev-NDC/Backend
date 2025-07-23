@@ -7,9 +7,13 @@ const resultSchema = new mongoose.Schema({
   date: Date,
   testType: String,
   status: String,
-  file: Buffer,
-  filename: String,
-  mimeType: String,
+  files: [
+    {
+      data: Buffer,
+      filename: String,
+      mimeType: String,
+    }
+  ]
 }, { timestamps: true });
 
 module.exports = mongoose.model("Result", resultSchema);
