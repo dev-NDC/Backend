@@ -62,4 +62,8 @@ app.use("/api/i3Screen", resultRoutes);
 // ------------------ SERVER ------------------
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
+
+    const xml = req.body?.toString?.();
+
+console.log("🔥 Raw XML payload received:\n", xml); 
 });
