@@ -13,56 +13,62 @@ const password = process.env.PASSWORD;
 
 
 const getAllCompanyAllDetials = async (req, res) => {
-    try {
-        const agencyId = req.user.id; // From JWT middleware or similar
+  try {
+    const agencyId = req.user.id; // From JWT middleware or similar
 
-        // 1. Fetch the agency from the Agency model
-        const agency = await Agency.findById(agencyId);
-        if (!agency) {
-            return res.status(403).json({
-                errorStatus: 1,
-                message: "Unauthorized access: Only agencies can access this endpoint.",
-            });
-        }
-
-        // 2. Extract handled company IDs
-        const handledCompanyIds = agency.handledCompanies.map(company => company._id);
-
-        // 3. Fetch users with those IDs and role: User
-        const companies = await User.find({
-            _id: { $in: handledCompanyIds },
-            "Membership.planStatus": "Active"
-        });
-
-        // 4. Format response data
-        const formattedCompanies = companies.map((company) => ({
-            _id: company._id,
-            companyName: company.companyInfoData.companyName || "",
-            companyDetails: company.companyInfoData,
-            packages: company.Membership?.package?.map(pkg => ({
-                _id: pkg._id,
-                packageName: pkg.package_name || "",
-            })) || [],
-            orderReasons: company.Membership?.order_reason?.map(reason => ({
-                _id: reason._id,
-                orderReasonName: reason.order_reason_name || "",
-            })) || [],
-        }));
-
-        return res.status(200).json({
-            errorStatus: 0,
-            message: "Handled company details retrieved successfully",
-            data: formattedCompanies,
-        });
-
-    } catch (error) {
-        return res.status(500).json({
-            errorStatus: 1,
-            message: "Server error, please try again later",
-            error: error.message,
-        });
+    // 1. Fetch the agency from the Agency model
+    const agency = await Agency.findById(agencyId);
+    if (!agency) {
+      return res.status(403).json({
+        errorStatus: 1,
+        message: "Unauthorized access: Only agencies can access this endpoint.",
+      });
     }
+
+    // 2. Extract handled company IDs
+    const handledCompanyIds = agency.handledCompanies.map(c => c._id);
+
+    // 3. Fetch users with those IDs and active membership
+    const companies = await User.find({
+      _id: { $in: handledCompanyIds },
+      "Membership.planStatus": "Active"
+    });
+
+    // 4. Format response data
+    const formattedCompanies = companies.map(company => ({
+      _id: company._id,
+      companyName: company.companyInfoData.companyName || "",
+      companyDetails: company.companyInfoData,
+      packages: company.Membership?.package?.map(pkg => ({
+        _id: pkg._id,
+        packageName: pkg.package_name || "",
+      })) || [],
+      orderReasons: company.Membership?.order_reason?.map(reason => ({
+        _id: reason._id,
+        orderReasonName: reason.order_reason_name || "",
+      })) || [],
+    }));
+
+    // 5. Sort alphabetically by companyName
+    formattedCompanies.sort((a, b) =>
+      a.companyName.localeCompare(b.companyName, undefined, { sensitivity: 'base' })
+    );
+
+    return res.status(200).json({
+      errorStatus: 0,
+      message: "Handled company details retrieved successfully",
+      data: formattedCompanies,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      errorStatus: 1,
+      message: "Server error, please try again later",
+      error: error.message,
+    });
+  }
 };
+
 
 
 

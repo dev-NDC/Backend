@@ -3,44 +3,52 @@ const Driver = require("../../database/Driver");
 const User = require("../../database/User");
 
 const getAllResult = async (req, res) => {
-    try {
-        // Fetch all results and populate driver & user (company) fields
-        const results = await Result.find({})
-            .populate('user', 'companyInfoData.companyName')
-            .populate('driverId', 'first_name last_name government_id');
+  try {
+    // Fetch all results and populate driver & user (company) fields
+    const results = await Result.find({})
+      .populate('user', 'companyInfoData.companyName')
+      .populate('driverId', 'first_name last_name government_id');
 
-        const allResults = results.map(result => ({
-            companyName: result.user?.companyInfoData?.companyName || "Unknown Company",
-            driverName: result.driverId
-                ? `${result.driverId.first_name} ${result.driverId.last_name}`
-                : "Unknown Driver",
-            licenseNumber: result.driverId?.government_id || "N/A",
-            testDate: result.date,
-            testType: result.testType,
-            status: result.status,
-            caseNumber: result.caseNumber,
-            resultImage: result.file
-                ? `data:${result.mimeType};base64,${result.file.toString("base64")}`
-                : null
-        }));
+    const allResults = results.map(result => {
+      // convert each file buffer into a data URL
+      const resultImages = (result.files || []).map(file => ({
+        filename: file.filename,
+        url: `data:${file.mimeType};base64,${file.data.toString('base64')}`
+      }));
 
-        // Sort by test date, newest first
-        allResults.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
+      return {
+        companyName: result.user?.companyInfoData?.companyName || "Unknown Company",
+        driverName: result.driverId
+          ? `${result.driverId.first_name} ${result.driverId.last_name}`
+          : "Unknown Driver",
+        licenseNumber: result.driverId?.government_id || "N/A",
+        testDate: result.date,
+        testType: result.testType,
+        orderStatus: result.orderStatus || "N/A",
+        resultStatus: result.resultStatus || "N/A",
+        caseNumber: result.caseNumber,
+        resultImages,        
+      };
+    });
 
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Results fetched successfully",
-            data: allResults,
-        });
+    // Sort by test date, newest first
+    allResults.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
 
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error while fetching results",
-            error: error.message,
-        });
-    }
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Results fetched successfully",
+      data: allResults,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error while fetching results",
+      error: error.message,
+    });
+  }
 };
+
 
 
 const uploadResult = async (req, res) => {

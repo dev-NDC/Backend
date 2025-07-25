@@ -15,19 +15,27 @@ const getAllCompanyAllDetials = async (req, res) => {
       "Membership.planStatus": "Active"
     });
 
+    // map to the shape you need
     const formattedCompanies = companies.map((company) => ({
       _id: company._id,
       companyName: company.companyInfoData?.companyName || "",
       companyDetails: company.companyInfoData || {},
-      packages: company.Membership?.package?.map(pkg => ({
-        _id: pkg._id,
-        packageName: pkg.package_name || "",
-      })) || [],
-      orderReasons: company.Membership?.order_reason?.map(reason => ({
-        _id: reason._id,
-        orderReasonName: reason.order_reason_name || ""
-      })) || []
+      packages:
+        company.Membership?.package?.map(pkg => ({
+          _id: pkg._id,
+          packageName: pkg.package_name || "",
+        })) || [],
+      orderReasons:
+        company.Membership?.order_reason?.map(reason => ({
+          _id: reason._id,
+          orderReasonName: reason.order_reason_name || ""
+        })) || []
     }));
+
+    // sort alphabetically by companyName
+    formattedCompanies.sort((a, b) =>
+      a.companyName.localeCompare(b.companyName, undefined, { sensitivity: 'base' })
+    );
 
     res.status(200).json({
       errorStatus: 0,
@@ -43,6 +51,7 @@ const getAllCompanyAllDetials = async (req, res) => {
     });
   }
 };
+
 
 function generateOrderReference() {
     const uuid = crypto.randomUUID(); // 36 chars

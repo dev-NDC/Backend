@@ -6,7 +6,8 @@ const resultSchema = new mongoose.Schema({
   caseNumber: String,
   date: Date,
   testType: String,
-  status: String,
+  orderStatus: String,
+  resultStatus: String,
   files: [
     {
       data: Buffer,
