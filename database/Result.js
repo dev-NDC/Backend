@@ -6,8 +6,14 @@ const resultSchema = new mongoose.Schema({
   caseNumber: String,
   date: Date,
   testType: String,
-  orderStatus: String,
-  resultStatus: String,
+  orderStatus: {
+    type: String,
+    default: "Pending"
+  },
+  resultStatus: {
+    type: String,
+    default: "Pending"
+  },
   files: [
     {
       data: Buffer,

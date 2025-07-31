@@ -51,100 +51,106 @@ const getAllUserData = async (req, res) => {
 };
 
 
+// controllers/userController.js
+
 const getSingleUserDetails = async (req, res) => {
-    try {
-        const userId = req.body.id;
-
-        if (!userId) {
-            return res.status(400).json({
-                errorStatus: 1,
-                message: "User ID is required",
-            });
-        }
-
-        // Fetch user details (exclude password)
-        const user = await User.findById(userId).select("-contactInfoData.password");
-
-        if (!user) {
-            return res.status(404).json({
-                errorStatus: 1,
-                message: "User not found",
-            });
-        }
-
-        // Fetch related data
-        const [
-            drivers,
-            results,
-            invoices,
-            certificates,
-            documents,
-            randoms
-        ] = await Promise.all([
-            Driver.find({ user: userId }),
-            Result.find({ user: userId }),
-            Invoice.find({ user: userId }),
-            Certificate.find({ user: userId }),
-            Document.find({ user: userId }),
-            Random.find({ user: userId })
-        ]);
-
-        // Prepare drivers map for easy lookup (for results enrichment)
-        const driverMap = {};
-        drivers.forEach(d => { driverMap[d._id.toString()] = d });
-
-        // Enrich results with driver data
-        const enrichedResults = results.map(result => {
-            const driver = driverMap[result.driverId?.toString()];
-            return {
-                ...result.toObject(),
-                driverName: driver ? `${driver.first_name} ${driver.last_name}` : "Unknown",
-                licenseNumber: driver ? driver.government_id : "N/A",
-            };
-        });
-
-        // Convert certificateFile to base64
-        const base64Certificates = certificates.map(cert => ({
-            ...cert.toObject(),
-            certificateFile: cert.certificateFile?.toString("base64"),
-        }));
-
-        // Convert invoice file to base64
-        const base64Invoices = invoices.map(invoice => ({
-            ...invoice.toObject(),
-            file: invoice.file?.toString("base64"),
-        }));
-
-        // Convert documentFile to base64
-        const base64Documents = documents.map(doc => ({
-            ...doc.toObject(),
-            documentFile: doc.documentFile?.toString("base64"),
-        }));
-
-        // Prepare response object
-        const userObj = user.toObject();
-        userObj.drivers = drivers;
-        userObj.results = enrichedResults;
-        userObj.invoices = base64Invoices;
-        userObj.certificates = base64Certificates;
-        userObj.documents = base64Documents;
-        userObj.randoms = randoms;
-
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Data retrieved successfully",
-            data: userObj,
-        });
-
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error, please try again later",
-            error: error.message,
-        });
+  try {
+    const userId = req.body.id;
+    if (!userId) {
+      return res.status(400).json({
+        errorStatus: 1,
+        message: "User ID is required",
+      });
     }
-};
 
+    // Fetch user (omit password)
+    const user = await User.findById(userId)
+      .select("-contactInfoData.password");
+    if (!user) {
+      return res.status(404).json({
+        errorStatus: 1,
+        message: "User not found",
+      });
+    }
+
+    // Fetch related collections in parallel
+    const [drivers, results, invoices, certificates, documents, randoms] =
+      await Promise.all([
+        Driver.find({ user: userId }),
+        Result.find({ user: userId }),
+        Invoice.find({ user: userId }),
+        Certificate.find({ user: userId }),
+        Document.find({ user: userId }),
+        Random.find({ user: userId })
+      ]);
+
+    // Map drivers by _id for lookup
+    const driverMap = {};
+    drivers.forEach(d => {
+      driverMap[d._id.toString()] = d;
+    });
+
+    // --- NEW: enrich each Result with driver info + resultImages array ---
+    const enrichedResults = results.map(result => {
+      const driver = driverMap[result.driverId?.toString()];
+      const resultImages = (result.files || []).map(file => ({
+        filename: file.filename,
+        mimeType: file.mimeType,
+        url: `data:${file.mimeType};base64,${file.data.toString('base64')}`
+      }));
+
+      return {
+        _id: result._id,
+        caseNumber: result.caseNumber,
+        date: result.date,
+        testType: result.testType,
+        orderStatus: result.orderStatus || "N/A",
+        resultStatus: result.resultStatus || "N/A",
+        driverName: driver
+          ? `${driver.first_name} ${driver.last_name}`
+          : "Unknown Driver",
+        licenseNumber: driver ? driver.government_id : "N/A",
+        resultImages
+      };
+    });
+
+    // Convert other file types to base64 as before
+    const base64Certificates = certificates.map(cert => ({
+      ...cert.toObject(),
+      certificateFile: cert.certificateFile?.toString("base64"),
+    }));
+    const base64Invoices = invoices.map(inv => ({
+      ...inv.toObject(),
+      file: inv.file?.toString("base64"),
+    }));
+    const base64Documents = documents.map(doc => ({
+      ...doc.toObject(),
+      documentFile: doc.documentFile?.toString("base64"),
+    }));
+
+    // Assemble final payload
+    const userObj = user.toObject();
+    userObj.drivers      = drivers;
+    userObj.results      = enrichedResults;
+    userObj.invoices     = base64Invoices;
+    userObj.certificates = base64Certificates;
+    userObj.documents    = base64Documents;
+    userObj.randoms      = randoms;
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Data retrieved successfully",
+      data: userObj,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error, please try again later",
+      error: error.message,
+    });
+  }
+};
 
 
 

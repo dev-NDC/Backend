@@ -7,77 +7,79 @@ const isCompanyHandledByAgency = require("./checkAgencyPermission");
 
 // Get all result
 const getAllResult = async (req, res) => {
-    try {
-        const agencyId = req.user.id;
+  try {
+    const agencyId = req.user.id;
 
-        // Step 1: Get agency and validate
-        const agency = await Agency.findById(agencyId);
-        if (!agency) {
-            return res.status(404).json({
-                errorStatus: 1,
-                message: "Agency not found",
-            });
-        }
-
-        // Step 2: Extract company IDs
-        const handledCompanyIds = agency.handledCompanies.map(c => c._id);
-
-        // Step 3: Get companies and build a map for company names
-        const companies = await User.find({ _id: { $in: handledCompanyIds } }).select("companyInfoData.companyName");
-        const companyNameMap = {};
-        companies.forEach(company => {
-            companyNameMap[company._id.toString()] = company.companyInfoData?.companyName || "Unknown Company";
-        });
-
-        // Step 4: Get all drivers for these companies and build a map by _id
-        const drivers = await Driver.find({ user: { $in: handledCompanyIds } });
-        const driverMap = {};
-        drivers.forEach(driver => {
-            driverMap[driver._id.toString()] = driver;
-        });
-
-        // Step 5: Get all results for these companies
-        const results = await Result.find({ user: { $in: handledCompanyIds } });
-
-        // Step 6: Prepare the final array
-        const allResults = results.map(result => {
-            const driver = driverMap[result.driverId?.toString()];
-            const companyName = companyNameMap[result.user.toString()] || "Unknown Company";
-            const driverName = driver ? `${driver.first_name} ${driver.last_name}` : "Unknown Driver";
-            const licenseNumber = driver ? driver.government_id : "N/A";
-
-            return {
-                companyName,
-                driverName,
-                licenseNumber,
-                testDate: result.date,
-                testType: result.testType,
-                status: result.status,
-                caseNumber: result.caseNumber,
-                resultImage: result.file
-                    ? `data:${result.mimeType};base64,${result.file.toString("base64")}`
-                    : null
-            };
-        });
-
-        // Step 7: Sort by test date, newest first
-        allResults.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
-
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Results fetched successfully",
-            data: allResults,
-        });
-
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error while fetching results",
-            error: error.message,
-        });
+    // — Validate agency
+    const agency = await Agency.findById(agencyId);
+    if (!agency) {
+      return res.status(404).json({
+        errorStatus: 1,
+        message: "Agency not found",
+      });
     }
-};
 
+    // — Build lookup maps for companies & drivers
+    const handledCompanyIds = agency.handledCompanies.map(c => c._id);
+    const companies = await User.find(
+      { _id: { $in: handledCompanyIds } },
+      "companyInfoData.companyName"
+    );
+    const companyNameMap = {};
+    companies.forEach(c => {
+      companyNameMap[c._id.toString()] =
+        c.companyInfoData?.companyName || "Unknown Company";
+    });
+
+    const drivers = await Driver.find({ user: { $in: handledCompanyIds } });
+    const driverMap = {};
+    drivers.forEach(d => {
+      driverMap[d._id.toString()] = d;
+    });
+
+    // — Fetch & transform results
+    const results = await Result.find({ user: { $in: handledCompanyIds } });
+    const allResults = results.map(r => {
+      const drv = driverMap[r.driverId?.toString()];
+      const companyName = companyNameMap[r.user.toString()] || "Unknown Company";
+
+      // map each file → { filename, url }
+      const resultImages = (r.files || []).map(f => ({
+        filename: f.filename,
+        url: `data:${f.mimeType};base64,${f.data.toString("base64")}`
+      }));
+
+      return {
+        companyName,
+        driverName: drv
+          ? `${drv.first_name} ${drv.last_name}`
+          : "Unknown Driver",
+        licenseNumber: drv ? drv.government_id : "N/A",
+        testDate: r.date,
+        testType: r.testType,
+        orderStatus: r.orderStatus || "N/A",
+        resultStatus: r.resultStatus || "N/A",
+        caseNumber: r.caseNumber,
+        resultImages,          // ← now an array
+      };
+    });
+
+    // — Sort newest first
+    allResults.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
+
+    return res.status(200).json({
+      errorStatus: 0,
+      message: "Results fetched successfully",
+      data: allResults,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      errorStatus: 1,
+      message: "Server error while fetching results",
+      error: error.message,
+    });
+  }
+};
 // Upload Result
 const uploadResult = async (req, res) => {
     try {

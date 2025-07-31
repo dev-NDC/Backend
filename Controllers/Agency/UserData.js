@@ -71,107 +71,85 @@ const getAllUserData = async (req, res) => {
 };
 
 const getSingleUserDetails = async (req, res) => {
-    try {
-        const userId = req.body.id;
-        const agencyId = req.user.id;
+  try {
+    const userId   = req.body.id;
+    const agencyId = req.user.id;
 
-        if (!userId) {
-            return res.status(400).json({
-                errorStatus: 1,
-                message: "User ID is required",
-            });
-        }
-
-        // Fetch current agency
-        const agency = await Agency.findById(agencyId);
-        if (!agency) {
-            return res.status(403).json({
-                errorStatus: 1,
-                message: "Unauthorized access – agency not found",
-            });
-        }
-
-        // Check if the user belongs to handledCompanies
-        const hasAccess = await isCompanyHandledByAgency(userId, agencyId);
-        if (!hasAccess) {
-            return res.status(403).json({
-                errorStatus: 1,
-                message: "Access denied. This company does not belong to you.",
-            });
-        }
-
-        // Fetch user details
-        const user = await User.findById(userId).select("-contactInfoData.password");
-        if (!user) {
-            return res.status(404).json({
-                errorStatus: 1,
-                message: "User not found",
-            });
-        }
-
-        const userObj = user.toObject();
-
-        // Fetch related collections
-        const [drivers, results, certificates, invoices, randoms] = await Promise.all([
-            Driver.find({ user: userId }),
-            Result.find({ user: userId }),
-            Certificate.find({ user: userId }),
-            Invoice.find({ user: userId }),
-            Random.find({ "company._id": userId }), // adjust based on actual schema
-        ]);
-
-        // Map drivers for result enrichment
-        const driverMap = {};
-        drivers.forEach(driver => {
-            driverMap[driver._id.toString()] = driver;
-        });
-
-        // Enrich results with driver info
-        const enrichedResults = results.map(result => {
-            const driver = driverMap[result.driverId?.toString()];
-            return {
-                ...result.toObject(),
-                driverName: driver ? `${driver.first_name} ${driver.last_name}` : "Unknown",
-                licenseNumber: driver ? driver.government_id : "N/A",
-            };
-        });
-
-        // Convert Buffers to base64
-        const base64Certificates = certificates.map(cert => ({
-            ...cert.toObject(),
-            certificateFile: cert.certificateFile?.toString("base64"),
-        }));
-
-        const base64Invoices = invoices.map(invoice => ({
-            ...invoice.toObject(),
-            file: invoice.file?.toString("base64"),
-        }));
-
-        const base64Randoms = randoms.map(random => ({
-            ...random.toObject(),
-            // Add conversion if any Buffer fields exist in random schema
-        }));
-
-        // Assign processed data
-        userObj.drivers = drivers;
-        userObj.results = enrichedResults;
-        userObj.certificates = base64Certificates;
-        userObj.invoices = base64Invoices;
-        userObj.randoms = base64Randoms;
-
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Data retrieved successfully",
-            data: userObj,
-        });
-
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error, please try again later",
-            error: error.message,
-        });
+    if (!userId) {
+      return res.status(400).json({ errorStatus: 1, message: "User ID is required" });
     }
+
+    const agency = await Agency.findById(agencyId);
+    if (!agency) {
+      return res.status(403).json({ errorStatus: 1, message: "Unauthorized access – agency not found" });
+    }
+
+    const hasAccess = await isCompanyHandledByAgency(userId, agencyId);
+    if (!hasAccess) {
+      return res.status(403).json({ errorStatus: 1, message: "Access denied. This company does not belong to you." });
+    }
+
+    const user = await User.findById(userId).select("-contactInfoData.password");
+    if (!user) {
+      return res.status(404).json({ errorStatus: 1, message: "User not found" });
+    }
+
+    const [drivers, results, certificates, invoices, randoms] = await Promise.all([
+      Driver.find({ user: userId }),
+      Result.find({ user: userId }),
+      Certificate.find({ user: userId }),
+      Invoice.find({ user: userId }),
+      Random.find({ user: userId })
+    ]);
+
+    const driverMap = {};
+    drivers.forEach(d => { driverMap[d._id.toString()] = d; });
+
+    const enrichedResults = results.map(r => {
+      const drv = driverMap[r.driverId?.toString()];
+      const images = (r.files || []).map(f => ({
+        filename: f.filename,
+        mimeType: f.mimeType,
+        url: `data:${f.mimeType};base64,${f.data.toString('base64')}`
+      }));
+
+      return {
+        _id: r._id,
+        caseNumber: r.caseNumber,
+        date: r.date,
+        testType: r.testType,
+        orderStatus: r.orderStatus || "N/A",
+        resultStatus: r.resultStatus || "N/A",
+        driverName: drv ? `${drv.first_name} ${drv.last_name}` : "Unknown",
+        licenseNumber: drv ? drv.government_id : "N/A",
+        resultImages: images
+      };
+    });
+
+    const base64Certificates = certificates.map(c => ({
+      ...c.toObject(),
+      certificateFile: c.certificateFile?.toString("base64")
+    }));
+
+    const base64Invoices = invoices.map(inv => ({
+      ...inv.toObject(),
+      file: inv.file?.toString("base64")
+    }));
+
+    const base64Randoms = randoms.map(rnd => ({ ...rnd.toObject() }));
+
+    const userObj = user.toObject();
+    userObj.drivers      = drivers;
+    userObj.results      = enrichedResults;
+    userObj.certificates = base64Certificates;
+    userObj.invoices     = base64Invoices;
+    userObj.randoms      = base64Randoms;
+
+    res.status(200).json({ errorStatus: 0, message: "Data retrieved successfully", data: userObj });
+
+  } catch (error) {
+    res.status(500).json({ errorStatus: 1, message: "Server error, please try again later", error: error.message });
+  }
 };
 
 
