@@ -6,6 +6,19 @@ const path = require("path");
 const User = require("../../database/User");
 const Certificate = require("../../database/Certificate")
 
+// --- US date formatter: MM-DD-YYYY (zero-padded) ---
+const formatDateUS = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d)) return "";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(d);
+  const get = (t) => parts.find(p => p.type === t)?.value || "";
+  return [get("month"), get("day"), get("year")].join("-");
+};
 
 const generateCertificate = async (userData, id) => {
   return new Promise((resolve, reject) => {
@@ -38,13 +51,10 @@ const generateCertificate = async (userData, id) => {
     //add margin
     doc.moveDown(5);
     const companyName = userData?.companyInfoData?.companyName;
-    // Format startDate as only date (YYYY-MM-DD)
-    const startDate = new Date().toISOString().split("T")[0];
 
-    // Move down before starting (already handled above)
-    // doc.moveDown(10);
+    // Format startDate in professional US format (MM-DD-YYYY)
+    const startDate = formatDateUS(new Date());
 
-    // Title
     doc
       .fillColor('#448EE4')
       .fontSize(30)
@@ -73,7 +83,7 @@ const generateCertificate = async (userData, id) => {
       })
       .moveDown(1);
 
-    // Certificate Body Text
+    // Certificate Body Text (date now MM-DD-YYYY)
     doc
       .fillColor('#448EE4')
       .fontSize(18)
@@ -142,8 +152,8 @@ const sendEmailWithPDF = async (pdfPath, recipientEmail, companyName, userId) =>
     // 2. Read PDF as buffer
     const fileBuffer = fs.readFileSync(pdfPath);
     // 3. Set certificate dates
-    const issueDate = new Date();
-    const expirationDate = new Date();
+    const issueDate = formatDateUS(new Date());
+    const expirationDate = formatDateUS(new Date());
     expirationDate.setFullYear(issueDate.getFullYear() + 1);
 
     // 4. Create new certificate (not $push into user!)
