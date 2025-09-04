@@ -20,7 +20,7 @@ const RandomDriver = async (email, ccEmail, data ) => {
           </div>
           <div style="max-width: 700px; margin: 30px auto; background-color: #f7f7f7; padding: 0 30px; text-align: center;">
             <h2 style="color: #4285f4; margin-bottom: 5px;">${data.year} RANDOM SELECTIONS NOTICE</h2>
-            <h3 style="color: red; margin: 10px 0;">${data.quarter} QUARTER</h3>
+            <h3 style="color: red; margin: 10px 0;">${data.quarter} </h3>
             <p>Hello <strong>${data?.company?.name || "Unknown"}</strong>,</p>
             <p>
               The following driver has been chosen for Q${data.quarter} ${data.year} DOT Random Pool. Please complete this
@@ -44,9 +44,9 @@ const RandomDriver = async (email, ccEmail, data ) => {
           </div>
           <div style="background-color: #4285f4; padding: 30px 20px; text-align: center; color: white; font-size: 14px; line-height: 1.6;">
             <div><strong>NATIONWIDE DRUG CENTERS</strong></div>
-            <div>1121 HARRISON AVE, SUITE 5131<br>CENTRALIA, WA 98531</div>
-            <div>(360)249-7511<br>(206)571-7669</div>
-            <div><a href="https://www.ndctesting.com" target="_blank" style="color: white; text-decoration: underline;">WWW.NDCTESTING.COM</a></div>
+            <div>3055 NW YEON AVE UNTT#271<br>Portland, OR 97210</div>
+            <div>(360)249-7511<br>(206)571-7659</div>
+            <div><a href="https://www.nwdrugtesting.com" target="_blank" style="color: white; text-decoration: underline;">www.nwdrugtesting.com</a></div>
           </div>
         </body>
         </html>
