@@ -6,7 +6,7 @@ const getAllResult = async (req, res) => {
   try {
     // Fetch all results and populate driver & user (company) fields
     const results = await Result.find({})
-      .populate('user', 'companyInfoData.companyName')
+      .populate('user', 'companyInfoData.companyName _id')
       .populate('driverId', 'first_name last_name government_id');
 
     const allResults = results.map(result => {
@@ -17,6 +17,8 @@ const getAllResult = async (req, res) => {
       }));
 
       return {
+        _id: result._id,
+        userId: result.user?._id,
         companyName: result.user?.companyInfoData?.companyName || "Unknown Company",
         driverName: result.driverId
           ? `${result.driverId.first_name} ${result.driverId.last_name}`
@@ -48,8 +50,6 @@ const getAllResult = async (req, res) => {
     });
   }
 };
-
-
 
 const uploadResult = async (req, res) => {
     try {
@@ -117,23 +117,19 @@ const editResult = async (req, res) => {
         result.testType = parsedUpdatedData?.testType || result.testType;
         result.caseNumber = parsedUpdatedData?.caseNumber || result.caseNumber;
         result.date = parsedUpdatedData?.date ? new Date(parsedUpdatedData.date) : result.date;
-
         // Update file if a new one is uploaded
         if (file) {
             result.file = file.buffer;
             result.filename = file.originalname;
             result.mimeType = file.mimetype;
         }
-
         await result.save();
-
         // Also update driver's isActive status if driver exists
         const driver = await Driver.findOne({ _id: result.driverId, user: currentId });
         if (driver) {
             driver.isActive = result.status === "Negative";
             await driver.save();
         }
-
         res.status(200).json({
             errorStatus: 0,
             message: "Result updated successfully",
@@ -151,14 +147,11 @@ const editResult = async (req, res) => {
 const deleteResult = async (req, res) => {
     try {
         const { currentId, resultId } = req.body;
-
         // Delete result document
         const result = await Result.findOneAndDelete({ _id: resultId, user: currentId });
-
         if (!result) {
             return res.status(404).json({ errorStatus: 1, message: "Result not found" });
         }
-
         res.status(200).json({
             errorStatus: 0,
             message: "Result deleted successfully",
