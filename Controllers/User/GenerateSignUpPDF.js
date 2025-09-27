@@ -343,10 +343,10 @@ const createCustomPDF = async (userData, id) => {
                 }
             );
 
-        // Make "AL ROYAL TRUCKING INC" bold and blue
+        // Make "Nationwide Drug Centers" bold and blue
         doc.fillColor("blue")
             .font("Helvetica-Bold")
-            .text("AL ROYAL TRUCKING INC", {
+            .text("Nationwide Drug Centers", {
                 width: newContentWidth3,
                 continued: true,
             });
