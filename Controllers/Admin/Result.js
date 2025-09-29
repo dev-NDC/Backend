@@ -6,14 +6,14 @@ const getAllResult = async (req, res) => {
   try {
     // Fetch all results and populate driver & user (company) fields
     const results = await Result.find({})
-      .populate('user', 'companyInfoData.companyName _id')
-      .populate('driverId', 'first_name last_name government_id');
+      .populate("user", "companyInfoData.companyName _id")
+      .populate("driverId", "first_name last_name government_id");
 
-    const allResults = results.map(result => {
-      // convert each file buffer into a data URL
-      const resultImages = (result.files || []).map(file => ({
+    const allResults = results.map((result) => {
+      // convert each file buffer in "files" array into data URL
+      const resultImages = (result.files || []).map((file) => ({
         filename: file.filename,
-        url: `data:${file.mimeType};base64,${file.data.toString('base64')}`
+        url: `data:${file.mimeType};base64,${file.data.toString("base64")}`,
       }));
 
       return {
@@ -29,7 +29,13 @@ const getAllResult = async (req, res) => {
         orderStatus: result.orderStatus || "N/A",
         resultStatus: result.resultStatus || "N/A",
         caseNumber: result.caseNumber,
-        resultImages,        
+        resultImages,
+
+        // NEW: expose persisted fields so FE can prefill on reschedule
+        packageName: result.packageName || "",
+        packageCode: result.packageCode || "",
+        dotAgency: result.dotAgency || "",
+        orderReason: result.orderReason || result.testType || "",
       };
     });
 
@@ -41,7 +47,6 @@ const getAllResult = async (req, res) => {
       message: "Results fetched successfully",
       data: allResults,
     });
-
   } catch (error) {
     res.status(500).json({
       errorStatus: 1,
@@ -52,117 +57,162 @@ const getAllResult = async (req, res) => {
 };
 
 const uploadResult = async (req, res) => {
-    try {
-        const { currentId, driverId, caseNumber, date, testType, status } = req.body;
-        const file = req.file;
+  try {
+    const {
+      currentId,
+      driverId,
+      caseNumber,
+      date,
+      testType,
+      status,
 
-        // Confirm user and driver exist
-        const user = await User.findById(currentId);
-        if (!user) {
-            return res.status(404).json({ errorStatus: 1, message: "User not found" });
-        }
+      // NEW optional fields (allow setting through admin uploader)
+      packageName,
+      packageCode,
+      dotAgency,
+      orderReason,
+    } = req.body;
 
-        const driver = await Driver.findOne({ _id: driverId, user: currentId });
-        if (!driver) {
-            return res.status(404).json({ errorStatus: 1, message: "Driver not found" });
-        }
-        // Create and save result document
-        const result = new Result({
-            user: currentId,
-            driverId,
-            date: new Date(date),
-            testType,
-            status,
-            caseNumber,
-            file: file?.buffer,
-            filename: file?.originalname,
-            mimeType: file?.mimetype,
-        });
+    const file = req.file;
 
-        await result.save();
-
-        // Update driver's isActive status based on result status
-        driver.isActive = status === "Negative";
-        await driver.save();
-
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Result uploaded successfully",
-        });
-    } catch (error) {
-        console.error("Error uploading result:", error);
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error while uploading result",
-            error: error.message,
-        });
+    // Confirm user and driver exist
+    const user = await User.findById(currentId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "User not found" });
     }
-};
 
+    const driver = await Driver.findOne({ _id: driverId, user: currentId });
+    if (!driver) {
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "Driver not found" });
+    }
+
+    // Create and save result document
+    const result = new Result({
+      user: currentId,
+      driverId,
+      date: new Date(date),
+      testType,
+      status,
+      caseNumber,
+
+      // persist new fields if provided
+      packageName: packageName || "",
+      packageCode: packageCode || "",
+      dotAgency: dotAgency || "",
+      orderReason: orderReason || testType || "",
+
+      // legacy single-file fields (if using single upload)
+      file: file?.buffer,
+      filename: file?.originalname,
+      mimeType: file?.mimetype,
+    });
+
+    await result.save();
+
+    // Update driver's isActive status based on result status
+    driver.isActive = status === "Negative";
+    await driver.save();
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Result uploaded successfully",
+    });
+  } catch (error) {
+    console.error("Error uploading result:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error while uploading result",
+      error: error.message,
+    });
+  }
+};
 
 const editResult = async (req, res) => {
-    try {
-        const { currentId, resultId, updatedData } = req.body;
-        const parsedUpdatedData = typeof updatedData === "string" ? JSON.parse(updatedData) : updatedData;
-        const file = req.file;
+  try {
+    const { currentId, resultId, updatedData } = req.body;
+    const parsedUpdatedData =
+      typeof updatedData === "string" ? JSON.parse(updatedData) : updatedData;
+    const file = req.file;
 
-        // Find result
-        const result = await Result.findOne({ _id: resultId, user: currentId });
-        if (!result) {
-            return res.status(404).json({ errorStatus: 1, message: "Result not found" });
-        }
-
-        // Update result fields
-        result.status = parsedUpdatedData?.status || result.status;
-        result.testType = parsedUpdatedData?.testType || result.testType;
-        result.caseNumber = parsedUpdatedData?.caseNumber || result.caseNumber;
-        result.date = parsedUpdatedData?.date ? new Date(parsedUpdatedData.date) : result.date;
-        // Update file if a new one is uploaded
-        if (file) {
-            result.file = file.buffer;
-            result.filename = file.originalname;
-            result.mimeType = file.mimetype;
-        }
-        await result.save();
-        // Also update driver's isActive status if driver exists
-        const driver = await Driver.findOne({ _id: result.driverId, user: currentId });
-        if (driver) {
-            driver.isActive = result.status === "Negative";
-            await driver.save();
-        }
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Result updated successfully",
-        });
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error while editing result",
-            error: error.message,
-        });
+    // Find result
+    const result = await Result.findOne({ _id: resultId, user: currentId });
+    if (!result) {
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "Result not found" });
     }
+
+    // Update result fields
+    result.status = parsedUpdatedData?.status || result.status;
+    result.testType = parsedUpdatedData?.testType || result.testType;
+    result.caseNumber = parsedUpdatedData?.caseNumber || result.caseNumber;
+    result.date = parsedUpdatedData?.date
+      ? new Date(parsedUpdatedData.date)
+      : result.date;
+
+    // NEW: allow updating persisted order metadata
+    if (parsedUpdatedData?.packageName !== undefined)
+      result.packageName = parsedUpdatedData.packageName;
+    if (parsedUpdatedData?.packageCode !== undefined)
+      result.packageCode = parsedUpdatedData.packageCode;
+    if (parsedUpdatedData?.dotAgency !== undefined)
+      result.dotAgency = parsedUpdatedData.dotAgency;
+    if (parsedUpdatedData?.orderReason !== undefined)
+      result.orderReason = parsedUpdatedData.orderReason;
+
+    // Update file if a new one is uploaded
+    if (file) {
+      result.file = file.buffer;
+      result.filename = file.originalname;
+      result.mimeType = file.mimetype;
+    }
+
+    await result.save();
+
+    // Also update driver's isActive status if driver exists
+    const driver = await Driver.findOne({ _id: result.driverId, user: currentId });
+    if (driver) {
+      driver.isActive = result.status === "Negative";
+      await driver.save();
+    }
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Result updated successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error while editing result",
+      error: error.message,
+    });
+  }
 };
 
-
 const deleteResult = async (req, res) => {
-    try {
-        const { currentId, resultId } = req.body;
-        // Delete result document
-        const result = await Result.findOneAndDelete({ _id: resultId, user: currentId });
-        if (!result) {
-            return res.status(404).json({ errorStatus: 1, message: "Result not found" });
-        }
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Result deleted successfully",
-        });
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error while deleting result",
-            error: error.message,
-        });
+  try {
+    const { currentId, resultId } = req.body;
+    const result = await Result.findOneAndDelete({ _id: resultId, user: currentId });
+    if (!result) {
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "Result not found" });
     }
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Result deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error while deleting result",
+      error: error.message,
+    });
+  }
 };
 
 module.exports = { uploadResult, editResult, deleteResult, getAllResult };
