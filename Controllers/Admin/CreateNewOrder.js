@@ -1,3 +1,4 @@
+// CreateNewOrder.js
 const User = require("../../database/User");
 const Driver = require("../../database/Driver");
 const Result = require("../../database/Result");
@@ -98,6 +99,7 @@ const getSiteInformation = async (req, res) => {
 
     const referenceNumber = generateOrderReference();
 
+    // normalize emails
     let allEmails = "";
     if ((formData.email || "").trim() !== "") {
       allEmails = (formData.email || "").trim();
@@ -105,8 +107,11 @@ const getSiteInformation = async (req, res) => {
       allEmails = (formData.ccEmail || "").trim();
     }
 
+    // normalize dot agency (root or inside formData)
+    const dotAgencyVal = (dotAgency || formData.dotAgency || "").trim();
+
     const payloadForCreate = {
-      dot_agency: dotAgency || "",
+      dot_agency: dotAgencyVal,
       expiration_date_time: formattedExpiration,
       lab_location_code: "",
       location_code,
@@ -156,7 +161,37 @@ const getSiteInformation = async (req, res) => {
       });
       await newDriver.save();
 
-      // Persist Result (now also storing package/dot agency/reason)
+      // Build snapshots to persist (ORDER INFO + PARTICIPANT INFO)
+      const orderInfo = {
+        companyId,
+        packageId: packageId || "",
+        orderReasonId: orderReasonId || "",
+        dotAgency: dotAgencyVal,
+        orderExpires: formData.orderExpires || "",
+        sendLink: !!formData.sendLink,
+        donorPass: !!formData.donorPass,
+        referenceNumber,
+      };
+
+      const participantInfo = {
+        firstName: formData.firstName || "",
+        middleName: formData.middleName || "",
+        lastName: formData.lastName || "",
+        ssnEid: formData.ssn || "",
+        dob: formData.dob || "",
+        phone1: formData.phone1 || "",
+        phone2: formData.phone2 || "",
+        email: formData.email || "",
+        ccEmail: formData.ccEmail || "",
+        observed: !!formData.observed,
+        address: formData.address || "",
+        address2: formData.address2 || "",
+        city: formData.city || "",
+        state: formData.state || "",
+        zip: formData.zip || "",
+      };
+
+      // Persist Result (with order + participant snapshots)
       const resultToPush = new Result({
         user: companyId,
         driverId: newDriver._id,
@@ -168,8 +203,11 @@ const getSiteInformation = async (req, res) => {
         // NEW fields
         packageName: packageId || "",
         packageCode: findPackageId(packageId || ""),
-        dotAgency: dotAgency || "",
+        dotAgency: dotAgencyVal || "",
         orderReason: orderReasonId || "",
+        // snapshots
+        orderInfo,
+        participantInfo,
         // legacy single-file fields (left empty for compatibility)
         file: null,
         filename: "",
@@ -274,28 +312,61 @@ const newDriverSubmitOrder = async (req, res) => {
       { headers: { "Content-Type": "application/json" }, auth: { username, password } }
     );
 
-    const { companyId, orderReasonId, packageId, dotAgency } = req.body;
+    const { companyId, orderReasonId, packageId, dotAgency, formData = {} } = req.body;
 
     // Create Driver
     const newDriver = new Driver({
       user: companyId,
-      government_id: req.body.formData?.ssn || "",
-      first_name: req.body.formData?.firstName || "",
-      last_name: req.body.formData?.lastName || "",
-      phone: req.body.formData?.phone1 || "",
-      email: req.body.formData?.email || "",
-      postal_code: req.body.formData?.zip || "",
-      region: req.body.formData?.state || "",
-      municipality: req.body.formData?.city || "",
-      address: req.body.formData?.address || "",
-      dob: req.body.formData?.dob || "",
+      government_id: formData?.ssn || "",
+      first_name: formData?.firstName || "",
+      last_name: formData?.lastName || "",
+      phone: formData?.phone1 || "",
+      email: formData?.email || "",
+      postal_code: formData?.zip || "",
+      region: formData?.state || "",
+      municipality: formData?.city || "",
+      address: formData?.address || "",
+      dob: formData?.dob || "",
       isActive: false,
       creationDate: new Date().toISOString(),
       createdBy: req.body.createdBy || "Admin",
     });
     await newDriver.save();
 
-    // Persist Result (with package/dot agency/reason)
+    // normalize dot agency again (root or inside formData)
+    const dotAgencyVal = (dotAgency || formData?.dotAgency || "").trim();
+
+    // Build snapshots to persist
+    const orderInfo = {
+      companyId,
+      packageId: packageId || "",
+      orderReasonId: orderReasonId || "",
+      dotAgency: dotAgencyVal,
+      orderExpires: formData.orderExpires || "",
+      sendLink: !!formData.sendLink,
+      donorPass: !!formData.donorPass,
+      referenceNumber: "", // no reference generated here; left blank
+    };
+
+    const participantInfo = {
+      firstName: formData.firstName || "",
+      middleName: formData.middleName || "",
+      lastName: formData.lastName || "",
+      ssnEid: formData.ssn || "",
+      dob: formData.dob || "",
+      phone1: formData.phone1 || "",
+      phone2: formData.phone2 || "",
+      email: formData.email || "",
+      ccEmail: formData.ccEmail || "",
+      observed: !!formData.observed,
+      address: formData.address || "",
+      address2: formData.address2 || "",
+      city: formData.city || "",
+      state: formData.state || "",
+      zip: formData.zip || "",
+    };
+
+    // Persist Result (with order + participant snapshots)
     const resultToPush = new Result({
       user: companyId,
       driverId: newDriver._id,
@@ -307,8 +378,11 @@ const newDriverSubmitOrder = async (req, res) => {
       // NEW fields
       packageName: packageId || "",
       packageCode: findPackageId(packageId || ""),
-      dotAgency: dotAgency || "",
+      dotAgency: dotAgencyVal || "",
       orderReason: orderReasonId || "",
+      // snapshots
+      orderInfo,
+      participantInfo,
       // legacy single-file fields (empty)
       file: null,
       filename: "",
