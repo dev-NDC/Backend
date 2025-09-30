@@ -1,17 +1,15 @@
-// results.controller.js (uploadResult, editResult, deleteResult, getAllResult)
+// results.controller.js
 const Result = require("../../database/Result");
 const Driver = require("../../database/Driver");
 const User = require("../../database/User");
 
 const getAllResult = async (req, res) => {
   try {
-    // Fetch all results and populate driver & user (company) fields
     const results = await Result.find({})
       .populate("user", "companyInfoData.companyName _id")
       .populate("driverId", "first_name last_name government_id");
 
     const allResults = results.map((result) => {
-      // convert each file buffer in "files" array into data URL
       const resultImages = (result.files || []).map((file) => ({
         filename: file.filename,
         url: `data:${file.mimeType};base64,${file.data.toString("base64")}`,
@@ -32,19 +30,40 @@ const getAllResult = async (req, res) => {
         caseNumber: result.caseNumber,
         resultImages,
 
-        // NEW: expose persisted fields so FE can prefill on reschedule
+        // persisted metadata
         packageName: result.packageName || "",
         packageCode: result.packageCode || "",
         dotAgency: result.dotAgency || "",
         orderReason: result.orderReason || result.testType || "",
 
-        // NEW: snapshots
-        orderInfo: result.orderInfo || null,
-        participantInfo: result.participantInfo || null,
+        // ORDER INFO (flat)
+        selectedPackageId: result.selectedPackageId || "",
+        selectedOrderReasonId: result.selectedOrderReasonId || "",
+        orderExpires: result.orderExpires || "",
+        sendLink: !!result.sendLink,
+        donorPass: !!result.donorPass,
+        referenceNumber: result.referenceNumber || "",
+        schedulingUrl: result.schedulingUrl || "",
+
+        // PARTICIPANT INFO (flat)
+        firstName: result.firstName || "",
+        middleName: result.middleName || "",
+        lastName: result.lastName || "",
+        ssnEid: result.ssnEid || "",
+        dobString: result.dobString || "",
+        phone1: result.phone1 || "",
+        phone2: result.phone2 || "",
+        email: result.email || "",
+        ccEmail: result.ccEmail || "",
+        observedBool: !!result.observedBool,
+        address: result.address || "",
+        address2: result.address2 || "",
+        city: result.city || "",
+        state: result.state || "",
+        zip: result.zip || "",
       };
     });
 
-    // Sort by test date, newest first
     allResults.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
 
     res.status(200).json({
@@ -71,7 +90,7 @@ const uploadResult = async (req, res) => {
       testType,
       status,
 
-      // NEW optional fields (allow setting through admin uploader)
+      // optional fields
       packageName,
       packageCode,
       dotAgency,
@@ -80,7 +99,6 @@ const uploadResult = async (req, res) => {
 
     const file = req.file;
 
-    // Confirm user and driver exist
     const user = await User.findById(currentId);
     if (!user) {
       return res
@@ -95,7 +113,6 @@ const uploadResult = async (req, res) => {
         .json({ errorStatus: 1, message: "Driver not found" });
     }
 
-    // Create and save result document
     const result = new Result({
       user: currentId,
       driverId,
@@ -104,13 +121,11 @@ const uploadResult = async (req, res) => {
       status,
       caseNumber,
 
-      // persist new fields if provided
       packageName: packageName || "",
       packageCode: packageCode || "",
       dotAgency: dotAgency || "",
       orderReason: orderReason || testType || "",
 
-      // legacy single-file fields (if using single upload)
       file: file?.buffer,
       filename: file?.originalname,
       mimeType: file?.mimetype,
@@ -118,7 +133,6 @@ const uploadResult = async (req, res) => {
 
     await result.save();
 
-    // Update driver's isActive status based on result status
     driver.isActive = status === "Negative";
     await driver.save();
 
@@ -143,7 +157,6 @@ const editResult = async (req, res) => {
       typeof updatedData === "string" ? JSON.parse(updatedData) : updatedData;
     const file = req.file;
 
-    // Find result
     const result = await Result.findOne({ _id: resultId, user: currentId });
     if (!result) {
       return res
@@ -151,7 +164,6 @@ const editResult = async (req, res) => {
         .json({ errorStatus: 1, message: "Result not found" });
     }
 
-    // Update result fields
     result.status = parsedUpdatedData?.status || result.status;
     result.testType = parsedUpdatedData?.testType || result.testType;
     result.caseNumber = parsedUpdatedData?.caseNumber || result.caseNumber;
@@ -159,7 +171,6 @@ const editResult = async (req, res) => {
       ? new Date(parsedUpdatedData.date)
       : result.date;
 
-    // NEW: allow updating persisted order metadata
     if (parsedUpdatedData?.packageName !== undefined)
       result.packageName = parsedUpdatedData.packageName;
     if (parsedUpdatedData?.packageCode !== undefined)
@@ -169,7 +180,6 @@ const editResult = async (req, res) => {
     if (parsedUpdatedData?.orderReason !== undefined)
       result.orderReason = parsedUpdatedData.orderReason;
 
-    // Update file if a new one is uploaded
     if (file) {
       result.file = file.buffer;
       result.filename = file.originalname;
@@ -178,7 +188,6 @@ const editResult = async (req, res) => {
 
     await result.save();
 
-    // Also update driver's isActive status if driver exists
     const driver = await Driver.findOne({ _id: result.driverId, user: currentId });
     if (driver) {
       driver.isActive = result.status === "Negative";
