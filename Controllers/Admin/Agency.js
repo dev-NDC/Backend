@@ -261,4 +261,125 @@ const deleteAgency = async (req, res) => {
 };
 
 
-module.exports = { getAllAgencyData, getSingleAgencyData, getCompanyList, updateAgencyData, createNewAgency, deleteAgency };
+// NEW FUNCTION: Get agency by company ID or name
+const getAgencyByCompany = async (req, res) => {
+    try {
+        const { companyId, companyName } = req.body;
+
+        if (!companyId && !companyName) {
+            return res.status(400).json({
+                errorStatus: 1,
+                message: "Either companyId or companyName is required",
+            });
+        }
+
+        console.log("🔍 Searching for agency:", { companyId, companyName });
+
+        let agency = null;
+
+        // Strategy 1: Try to find by exact ID match
+        if (companyId) {
+            try {
+                const mongoose = require('mongoose');
+                const searchId = mongoose.Types.ObjectId(companyId);
+                
+                agency = await Agency.findOne({
+                    "handledCompanies._id": searchId
+                }).select("name email contactNumber agencyCode handledCompanies");
+
+                if (agency) {
+                    console.log("✅ Agency found by ID:", agency.name);
+                }
+            } catch (err) {
+                console.log("⚠️ Invalid ObjectId or ID search failed:", err.message);
+            }
+        }
+
+        // Strategy 2: If not found by ID, try by company name
+        if (!agency && companyName) {
+            const searchName = companyName.trim().toLowerCase();
+            
+            // Get all agencies
+            const allAgencies = await Agency.find({}).select("name email contactNumber agencyCode handledCompanies");
+            
+            // Find agency with matching company name
+            for (const ag of allAgencies) {
+                if (!ag.handledCompanies || ag.handledCompanies.length === 0) {
+                    continue;
+                }
+
+                const found = ag.handledCompanies.find(company => {
+                    const storedName = (company.name || "").trim().toLowerCase();
+                    
+                    // Exact match
+                    if (storedName === searchName) {
+                        return true;
+                    }
+                    
+                    // Partial match - check if either contains the other
+                    if (storedName.includes(searchName) || searchName.includes(storedName)) {
+                        return true;
+                    }
+                    
+                    // First 3 words match
+                    const searchWords = searchName.split(' ').slice(0, 3).join(' ');
+                    const storedWords = storedName.split(' ').slice(0, 3).join(' ');
+                    
+                    if (searchWords && storedWords && 
+                        (storedWords.includes(searchWords) || searchWords.includes(storedWords))) {
+                        return true;
+                    }
+                    
+                    return false;
+                });
+
+                if (found) {
+                    agency = ag;
+                    console.log("✅ Agency found by name:", agency.name, "- matched company:", found.name);
+                    break;
+                }
+            }
+        }
+
+        // No agency found
+        if (!agency) {
+            console.log("❌ No agency found");
+            return res.status(404).json({
+                errorStatus: 1,
+                message: "No agency found for this company",
+            });
+        }
+
+        // Return agency data
+        res.status(200).json({
+            errorStatus: 0,
+            message: "Agency found successfully",
+            data: {
+                agencyName: agency.name,
+                agencyEmail: agency.email,
+                agencyContactNumber: agency.contactNumber,
+                agencyCode: agency.agencyCode,
+                id: agency._id
+            }
+        });
+
+    } catch (error) {
+        console.error("❌ getAgencyByCompany error:", error);
+        res.status(500).json({
+            errorStatus: 1,
+            message: "Server error, please try again later",
+            error: error.message
+        });
+    }
+};
+
+
+module.exports = { 
+    getAllAgencyData, 
+    getSingleAgencyData, 
+    getCompanyList, 
+    updateAgencyData, 
+    createNewAgency, 
+    deleteAgency,
+    getAgencyByCompany  // NEW EXPORT
+};
