@@ -1,83 +1,223 @@
-// database/Result.js
-const mongoose = require("mongoose");
+// results.controller.js (uploadResult, editResult, deleteResult, getAllResult)
+const Result = require("../../database/Result");
+const Driver = require("../../database/Driver");
+const User = require("../../database/User");
 
-const fileSchema = new mongoose.Schema(
-  {
-    data: Buffer,
-    filename: String,
-    mimeType: String,
-  },
-  { _id: false }
-);
+const getAllResult = async (req, res) => {
+  try {
+    // Fetch all results and populate driver & user (company) fields
+    const results = await Result.find({})
+      .populate("user", "companyInfoData.companyName _id")
+      .populate("driverId", "first_name last_name government_id");
 
-// Snapshots
-const orderInfoSchema = new mongoose.Schema(
-  {
-    companyId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    packageId: { type: String, default: "" },
-    orderReasonId: { type: String, default: "" },
-    dotAgency: { type: String, default: "" },
-    orderExpires: { type: String, default: "" }, // original datetime-local string
-    sendLink: { type: Boolean, default: false },
-    donorPass: { type: Boolean, default: false },
-    referenceNumber: { type: String, default: "" }, // from create call
-  },
-  { _id: false }
-);
+    const allResults = results.map((result) => {
+      // convert each file buffer in "files" array into data URL
+      const resultImages = (result.files || []).map((file) => ({
+        filename: file.filename,
+        url: `data:${file.mimeType};base64,${file.data.toString("base64")}`,
+      }));
 
-const participantInfoSchema = new mongoose.Schema(
-  {
-    firstName: { type: String, default: "" },
-    middleName: { type: String, default: "" },
-    lastName: { type: String, default: "" },
-    ssnEid: { type: String, default: "" },
-    dob: { type: String, default: "" }, // stored as string to mirror form input
-    phone1: { type: String, default: "" },
-    phone2: { type: String, default: "" },
-    email: { type: String, default: "" },
-    ccEmail: { type: String, default: "" },
-    observed: { type: Boolean, default: false },
-    address: { type: String, default: "" },
-    address2: { type: String, default: "" },
-    city: { type: String, default: "" },
-    state: { type: String, default: "" },
-    zip: { type: String, default: "" },
-  },
-  { _id: false }
-);
+      return {
+        _id: result._id,
+        userId: result.user?._id,
+        companyName: result.user?.companyInfoData?.companyName || "Unknown Company",
+        driverName: result.driverId
+          ? `${result.driverId.first_name} ${result.driverId.last_name}`
+          : "Unknown Driver",
+        licenseNumber: result.driverId?.government_id || "N/A",
+        testDate: result.date,
+        testType: result.testType,
+        orderStatus: result.orderStatus || "N/A",
+        resultStatus: result.resultStatus || "N/A",
+        caseNumber: result.caseNumber,
+        resultImages,
 
-const resultSchema = new mongoose.Schema(
-  {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    driverId: { type: mongoose.Schema.Types.ObjectId, ref: "Driver" },
+        // NEW: expose persisted fields so FE can prefill on reschedule
+        packageName: result.packageName || "",
+        packageCode: result.packageCode || "",
+        dotAgency: result.dotAgency || "",
+        orderReason: result.orderReason || result.testType || "",
 
-    caseNumber: String,
-    date: Date,
+        // NEW: snapshots
+        orderInfo: result.orderInfo || null,
+        participantInfo: result.participantInfo || null,
+      };
+    });
 
-    // existing
-    testType: String, // previously used as "order reason" label
-    orderStatus: { type: String, default: "Pending" },
-    resultStatus: { type: String, default: "Pending" },
+    // Sort by test date, newest first
+    allResults.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
 
-    // attachments (array)
-    files: [fileSchema],
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Results fetched successfully",
+      data: allResults,
+    });
+  } catch (error) {
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error while fetching results",
+      error: error.message,
+    });
+  }
+};
 
-    // legacy single-file fields (still supported)
-    file: Buffer,
-    filename: String,
-    mimeType: String,
+const uploadResult = async (req, res) => {
+  try {
+    const {
+      currentId,
+      driverId,
+      caseNumber,
+      date,
+      testType,
+      status,
 
-    // NEW: persist order metadata so reschedule can prefill with certainty
-    packageName: { type: String, default: "" }, // UI label (e.g., "DOT PANEL")
-    packageCode: { type: String, default: "" }, // vendor code (e.g., "DOTU")
-    dotAgency: { type: String, default: "" }, // e.g., "FMCSA"
-    orderReason: { type: String, default: "" }, // explicit duplicate of testType
+      // NEW optional fields (allow setting through admin uploader)
+      packageName,
+      packageCode,
+      dotAgency,
+      orderReason,
+    } = req.body;
 
-    // NEW: snapshots of the order & participant forms at order time
-    orderInfo: { type: orderInfoSchema, default: undefined },
-    participantInfo: { type: participantInfoSchema, default: undefined },
-  },
-  { timestamps: true }
-);
+    const file = req.file;
 
-module.exports = mongoose.model("Result", resultSchema);
+    // Confirm user and driver exist
+    const user = await User.findById(currentId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "User not found" });
+    }
+
+    const driver = await Driver.findOne({ _id: driverId, user: currentId });
+    if (!driver) {
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "Driver not found" });
+    }
+
+    // Create and save result document
+    const result = new Result({
+      user: currentId,
+      driverId,
+      date: new Date(date),
+      testType,
+      status,
+      caseNumber,
+
+      // persist new fields if provided
+      packageName: packageName || "",
+      packageCode: packageCode || "",
+      dotAgency: dotAgency || "",
+      orderReason: orderReason || testType || "",
+
+      // legacy single-file fields (if using single upload)
+      file: file?.buffer,
+      filename: file?.originalname,
+      mimeType: file?.mimetype,
+    });
+
+    await result.save();
+
+    // Update driver's isActive status based on result status
+    driver.isActive = status === "Negative";
+    await driver.save();
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Result uploaded successfully",
+    });
+  } catch (error) {
+    console.error("Error uploading result:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error while uploading result",
+      error: error.message,
+    });
+  }
+};
+
+const editResult = async (req, res) => {
+  try {
+    const { currentId, resultId, updatedData } = req.body;
+    const parsedUpdatedData =
+      typeof updatedData === "string" ? JSON.parse(updatedData) : updatedData;
+    const file = req.file;
+
+    // Find result
+    const result = await Result.findOne({ _id: resultId, user: currentId });
+    if (!result) {
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "Result not found" });
+    }
+
+    // Update result fields
+    result.status = parsedUpdatedData?.status || result.status;
+    result.testType = parsedUpdatedData?.testType || result.testType;
+    result.caseNumber = parsedUpdatedData?.caseNumber || result.caseNumber;
+    result.date = parsedUpdatedData?.date
+      ? new Date(parsedUpdatedData.date)
+      : result.date;
+
+    // NEW: allow updating persisted order metadata
+    if (parsedUpdatedData?.packageName !== undefined)
+      result.packageName = parsedUpdatedData.packageName;
+    if (parsedUpdatedData?.packageCode !== undefined)
+      result.packageCode = parsedUpdatedData.packageCode;
+    if (parsedUpdatedData?.dotAgency !== undefined)
+      result.dotAgency = parsedUpdatedData.dotAgency;
+    if (parsedUpdatedData?.orderReason !== undefined)
+      result.orderReason = parsedUpdatedData.orderReason;
+
+    // Update file if a new one is uploaded
+    if (file) {
+      result.file = file.buffer;
+      result.filename = file.originalname;
+      result.mimeType = file.mimetype;
+    }
+
+    await result.save();
+
+    // Also update driver's isActive status if driver exists
+    const driver = await Driver.findOne({ _id: result.driverId, user: currentId });
+    if (driver) {
+      driver.isActive = result.status === "Negative";
+      await driver.save();
+    }
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Result updated successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error while editing result",
+      error: error.message,
+    });
+  }
+};
+
+const deleteResult = async (req, res) => {
+  try {
+    const { currentId, resultId } = req.body;
+    const result = await Result.findOneAndDelete({ _id: resultId, user: currentId });
+    if (!result) {
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "Result not found" });
+    }
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Result deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error while deleting result",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = { uploadResult, editResult, deleteResult, getAllResult };
