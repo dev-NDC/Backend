@@ -1,15 +1,16 @@
-// controllers/results.js
 const Result = require("../../database/Result");
 const Driver = require("../../database/Driver");
 const User = require("../../database/User");
 
 const getAllResult = async (req, res) => {
   try {
+    // Fetch all results and populate driver & user (company) fields
     const results = await Result.find({})
       .populate("user", "companyInfoData.companyName _id")
-      .populate("driverId", "first_name last_name government_id dob email phone address municipality region postal_code");
+      .populate("driverId", "first_name last_name government_id");
 
     const allResults = results.map((result) => {
+      // convert each file buffer in "files" array into data URL
       const resultImages = (result.files || []).map((file) => ({
         filename: file.filename,
         url: `data:${file.mimeType};base64,${file.data.toString("base64")}`,
@@ -18,53 +19,27 @@ const getAllResult = async (req, res) => {
       return {
         _id: result._id,
         userId: result.user?._id,
-        companyName: result.user?.companyInfoData?.companyName || result.companySnapshot?.companyName || "Unknown Company",
-
-        // Driver
-        driverName: result.driverId ? `${result.driverId.first_name} ${result.driverId.last_name}` : "Unknown Driver",
-        licenseNumber: result.driverId?.government_id || result.participant?.governmentId || "N/A",
-
-        // Dates & status
+        companyName: result.user?.companyInfoData?.companyName || "Unknown Company",
+        driverName: result.driverId
+          ? `${result.driverId.first_name} ${result.driverId.last_name}`
+          : "Unknown Driver",
+        licenseNumber: result.driverId?.government_id || "N/A",
         testDate: result.date,
-        testType: result.testType || result.orderReason || "",
+        testType: result.testType,
         orderStatus: result.orderStatus || "N/A",
         resultStatus: result.resultStatus || "N/A",
-        status: result.status || "Pending",
-
-        // Case
         caseNumber: result.caseNumber,
-        schedulingUrl: result.schedulingUrl || "",
-
-        // Images
         resultImages,
 
-        // Rich order metadata
-        packageId: result.packageId || "",
+        // NEW: expose persisted fields so FE can prefill on reschedule
         packageName: result.packageName || "",
         packageCode: result.packageCode || "",
-        orderReasonId: result.orderReasonId || "",
-        orderReason: result.orderReason || "",
         dotAgency: result.dotAgency || "",
-
-        sendLink: result.sendLink || false,
-        donorPass: result.donorPass || false,
-        observed: !!result.observed,
-
-        expirationDateTime: result.expirationDateTime || "",
-        orderReferenceNumber: result.orderReferenceNumber || "",
-
-        toEmail: result.toEmail || "",
-        ccEmail: result.ccEmail || "",
-        allEmails: result.allEmails || "",
-
-        participant: result.participant || null,
-        address: result.address || null,
-
-        selectedSite: result.selectedSite || null,
-        lastSearchZip: result.lastSearchZip || "",
+        orderReason: result.orderReason || result.testType || "",
       };
     });
 
+    // Sort by test date, newest first
     allResults.sort((a, b) => new Date(b.testDate) - new Date(a.testDate));
 
     res.status(200).json({
@@ -73,7 +48,6 @@ const getAllResult = async (req, res) => {
       data: allResults,
     });
   } catch (error) {
-    console.error("getAllResult error:", error);
     res.status(500).json({
       errorStatus: 1,
       message: "Server error while fetching results",
@@ -82,7 +56,6 @@ const getAllResult = async (req, res) => {
   }
 };
 
-// Optional admin upload keeps working; allow writing extended fields too.
 const uploadResult = async (req, res) => {
   try {
     const {
@@ -93,8 +66,7 @@ const uploadResult = async (req, res) => {
       testType,
       status,
 
-      // optional extended fields
-      packageId,
+      // NEW optional fields (allow setting through admin uploader)
       packageName,
       packageCode,
       dotAgency,
@@ -103,16 +75,22 @@ const uploadResult = async (req, res) => {
 
     const file = req.file;
 
+    // Confirm user and driver exist
     const user = await User.findById(currentId);
     if (!user) {
-      return res.status(404).json({ errorStatus: 1, message: "User not found" });
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "User not found" });
     }
 
     const driver = await Driver.findOne({ _id: driverId, user: currentId });
     if (!driver) {
-      return res.status(404).json({ errorStatus: 1, message: "Driver not found" });
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "Driver not found" });
     }
 
+    // Create and save result document
     const result = new Result({
       user: currentId,
       driverId,
@@ -121,12 +99,13 @@ const uploadResult = async (req, res) => {
       status,
       caseNumber,
 
-      packageId: packageId || "",
+      // persist new fields if provided
       packageName: packageName || "",
       packageCode: packageCode || "",
       dotAgency: dotAgency || "",
       orderReason: orderReason || testType || "",
 
+      // legacy single-file fields (if using single upload)
       file: file?.buffer,
       filename: file?.originalname,
       mimeType: file?.mimetype,
@@ -134,10 +113,14 @@ const uploadResult = async (req, res) => {
 
     await result.save();
 
+    // Update driver's isActive status based on result status
     driver.isActive = status === "Negative";
     await driver.save();
 
-    res.status(200).json({ errorStatus: 0, message: "Result uploaded successfully" });
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Result uploaded successfully",
+    });
   } catch (error) {
     console.error("Error uploading result:", error);
     res.status(500).json({
@@ -155,38 +138,33 @@ const editResult = async (req, res) => {
       typeof updatedData === "string" ? JSON.parse(updatedData) : updatedData;
     const file = req.file;
 
+    // Find result
     const result = await Result.findOne({ _id: resultId, user: currentId });
     if (!result) {
-      return res.status(404).json({ errorStatus: 1, message: "Result not found" });
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "Result not found" });
     }
 
-    // Common fields
-    if (parsedUpdatedData?.status !== undefined) result.status = parsedUpdatedData.status;
-    if (parsedUpdatedData?.testType !== undefined) result.testType = parsedUpdatedData.testType;
-    if (parsedUpdatedData?.caseNumber !== undefined) result.caseNumber = parsedUpdatedData.caseNumber;
-    if (parsedUpdatedData?.date) result.date = new Date(parsedUpdatedData.date);
+    // Update result fields
+    result.status = parsedUpdatedData?.status || result.status;
+    result.testType = parsedUpdatedData?.testType || result.testType;
+    result.caseNumber = parsedUpdatedData?.caseNumber || result.caseNumber;
+    result.date = parsedUpdatedData?.date
+      ? new Date(parsedUpdatedData.date)
+      : result.date;
 
-    // Extended order metadata
-    [
-      "packageId","packageName","packageCode","dotAgency","orderReason",
-      "sendLink","donorPass","observed","expirationDateTime","orderReferenceNumber",
-      "toEmail","ccEmail","allEmails","lastSearchZip",
-      "schedulingUrl","orderStatus","resultStatus"
-    ].forEach((k) => {
-      if (parsedUpdatedData?.[k] !== undefined) result[k] = parsedUpdatedData[k];
-    });
+    // NEW: allow updating persisted order metadata
+    if (parsedUpdatedData?.packageName !== undefined)
+      result.packageName = parsedUpdatedData.packageName;
+    if (parsedUpdatedData?.packageCode !== undefined)
+      result.packageCode = parsedUpdatedData.packageCode;
+    if (parsedUpdatedData?.dotAgency !== undefined)
+      result.dotAgency = parsedUpdatedData.dotAgency;
+    if (parsedUpdatedData?.orderReason !== undefined)
+      result.orderReason = parsedUpdatedData.orderReason;
 
-    // Nested objects
-    if (parsedUpdatedData?.participant) {
-      result.participant = { ...(result.participant || {}), ...parsedUpdatedData.participant };
-    }
-    if (parsedUpdatedData?.address) {
-      result.address = { ...(result.address || {}), ...parsedUpdatedData.address };
-    }
-    if (parsedUpdatedData?.selectedSite) {
-      result.selectedSite = { ...(result.selectedSite || {}), ...parsedUpdatedData.selectedSite };
-    }
-
+    // Update file if a new one is uploaded
     if (file) {
       result.file = file.buffer;
       result.filename = file.originalname;
@@ -195,18 +173,18 @@ const editResult = async (req, res) => {
 
     await result.save();
 
-    // keep driver active flag in sync if provided
-    if (result.driverId) {
-      const driver = await Driver.findOne({ _id: result.driverId, user: currentId });
-      if (driver) {
-        if (parsedUpdatedData?.status) driver.isActive = parsedUpdatedData.status === "Negative";
-        await driver.save();
-      }
+    // Also update driver's isActive status if driver exists
+    const driver = await Driver.findOne({ _id: result.driverId, user: currentId });
+    if (driver) {
+      driver.isActive = result.status === "Negative";
+      await driver.save();
     }
 
-    res.status(200).json({ errorStatus: 0, message: "Result updated successfully" });
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Result updated successfully",
+    });
   } catch (error) {
-    console.error("editResult error:", error);
     res.status(500).json({
       errorStatus: 1,
       message: "Server error while editing result",
@@ -220,11 +198,15 @@ const deleteResult = async (req, res) => {
     const { currentId, resultId } = req.body;
     const result = await Result.findOneAndDelete({ _id: resultId, user: currentId });
     if (!result) {
-      return res.status(404).json({ errorStatus: 1, message: "Result not found" });
+      return res
+        .status(404)
+        .json({ errorStatus: 1, message: "Result not found" });
     }
-    res.status(200).json({ errorStatus: 0, message: "Result deleted successfully" });
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Result deleted successfully",
+    });
   } catch (error) {
-    console.error("deleteResult error:", error);
     res.status(500).json({
       errorStatus: 1,
       message: "Server error while deleting result",
