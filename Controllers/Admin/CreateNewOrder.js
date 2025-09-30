@@ -161,53 +161,49 @@ const getSiteInformation = async (req, res) => {
       });
       await newDriver.save();
 
-      // Build snapshots to persist (ORDER INFO + PARTICIPANT INFO)
-      const orderInfo = {
-        companyId,
-        packageId: packageId || "",
-        orderReasonId: orderReasonId || "",
-        dotAgency: dotAgencyVal,
-        orderExpires: formData.orderExpires || "",
-        sendLink: !!formData.sendLink,
-        donorPass: !!formData.donorPass,
-        referenceNumber,
-      };
-
-      const participantInfo = {
-        firstName: formData.firstName || "",
-        middleName: formData.middleName || "",
-        lastName: formData.lastName || "",
-        ssnEid: formData.ssn || "",
-        dob: formData.dob || "",
-        phone1: formData.phone1 || "",
-        phone2: formData.phone2 || "",
-        email: formData.email || "",
-        ccEmail: formData.ccEmail || "",
-        observed: !!formData.observed,
-        address: formData.address || "",
-        address2: formData.address2 || "",
-        city: formData.city || "",
-        state: formData.state || "",
-        zip: formData.zip || "",
-      };
-
-      // Persist Result (with order + participant snapshots)
+      // Persist Result (with flat ORDER + PARTICIPANT fields)
       const resultToPush = new Result({
         user: companyId,
         driverId: newDriver._id,
         caseNumber: caseNumber || "",
         date: new Date(),
+
         // existing
         testType: orderReasonId || "",
         status: "Pending",
-        // NEW fields
+
+        // NEW: original metadata fields (you already had)
         packageName: packageId || "",
         packageCode: findPackageId(packageId || ""),
         dotAgency: dotAgencyVal || "",
         orderReason: orderReasonId || "",
-        // snapshots
-        orderInfo,
-        participantInfo,
+
+        // NEW: ORDER INFORMATION (flat)
+        selectedPackageId: packageId || "",
+        selectedOrderReasonId: orderReasonId || "",
+        orderExpires: formData.orderExpires || "",
+        sendLink: !!formData.sendLink,
+        donorPass: !!formData.donorPass,
+        referenceNumber,
+        schedulingUrl: scheduling_url || "",
+
+        // NEW: PARTICIPANT INFORMATION (flat)
+        firstName: formData.firstName || "",
+        middleName: formData.middleName || "",
+        lastName: formData.lastName || "",
+        ssnEid: formData.ssn || "",
+        dobString: formData.dob || "",
+        phone1: formData.phone1 || "",
+        phone2: formData.phone2 || "",
+        email: formData.email || "",
+        ccEmail: formData.ccEmail || "",
+        observedBool: !!formData.observed,
+        address: formData.address || "",
+        address2: formData.address2 || "",
+        city: formData.city || "",
+        state: formData.state || "",
+        zip: formData.zip || "",
+
         // legacy single-file fields (left empty for compatibility)
         file: null,
         filename: "",
@@ -336,53 +332,49 @@ const newDriverSubmitOrder = async (req, res) => {
     // normalize dot agency again (root or inside formData)
     const dotAgencyVal = (dotAgency || formData?.dotAgency || "").trim();
 
-    // Build snapshots to persist
-    const orderInfo = {
-      companyId,
-      packageId: packageId || "",
-      orderReasonId: orderReasonId || "",
-      dotAgency: dotAgencyVal,
-      orderExpires: formData.orderExpires || "",
-      sendLink: !!formData.sendLink,
-      donorPass: !!formData.donorPass,
-      referenceNumber: "", // no reference generated here; left blank
-    };
-
-    const participantInfo = {
-      firstName: formData.firstName || "",
-      middleName: formData.middleName || "",
-      lastName: formData.lastName || "",
-      ssnEid: formData.ssn || "",
-      dob: formData.dob || "",
-      phone1: formData.phone1 || "",
-      phone2: formData.phone2 || "",
-      email: formData.email || "",
-      ccEmail: formData.ccEmail || "",
-      observed: !!formData.observed,
-      address: formData.address || "",
-      address2: formData.address2 || "",
-      city: formData.city || "",
-      state: formData.state || "",
-      zip: formData.zip || "",
-    };
-
-    // Persist Result (with order + participant snapshots)
+    // Persist Result (flat ORDER + PARTICIPANT fields)
     const resultToPush = new Result({
       user: companyId,
       driverId: newDriver._id,
       caseNumber: req.body.caseNumber || "",
       date: new Date(),
+
       // existing
       testType: orderReasonId || "",
       status: "Pending",
-      // NEW fields
+
+      // original metadata fields (already present)
       packageName: packageId || "",
       packageCode: findPackageId(packageId || ""),
       dotAgency: dotAgencyVal || "",
       orderReason: orderReasonId || "",
-      // snapshots
-      orderInfo,
-      participantInfo,
+
+      // ORDER INFORMATION (flat)
+      selectedPackageId: packageId || "",
+      selectedOrderReasonId: orderReasonId || "",
+      orderExpires: formData.orderExpires || "",
+      sendLink: !!formData.sendLink,
+      donorPass: !!formData.donorPass,
+      referenceNumber: "",            // not returned in this step
+      schedulingUrl: "",              // not returned in this step
+
+      // PARTICIPANT INFORMATION (flat)
+      firstName: formData.firstName || "",
+      middleName: formData.middleName || "",
+      lastName: formData.lastName || "",
+      ssnEid: formData.ssn || "",
+      dobString: formData.dob || "",
+      phone1: formData.phone1 || "",
+      phone2: formData.phone2 || "",
+      email: formData.email || "",
+      ccEmail: formData.ccEmail || "",
+      observedBool: !!formData.observed,
+      address: formData.address || "",
+      address2: formData.address2 || "",
+      city: formData.city || "",
+      state: formData.state || "",
+      zip: formData.zip || "",
+
       // legacy single-file fields (empty)
       file: null,
       filename: "",
