@@ -1,5 +1,3 @@
-
-// controllers/orders.js
 const User = require("../../database/User");
 const Driver = require("../../database/Driver");
 const Result = require("../../database/Result");
@@ -14,7 +12,9 @@ const password = process.env.PASSWORD;
 
 const getAllCompanyAllDetials = async (req, res) => {
   try {
-    const companies = await User.find({ "Membership.planStatus": "Active" });
+    const companies = await User.find({
+      "Membership.planStatus": "Active",
+    });
 
     const formattedCompanies = companies.map((company) => ({
       _id: company._id,
@@ -80,10 +80,9 @@ function findPackageId(package_code) {
   return packageMap[package_code] || package_code;
 }
 
-// CREATE CASE (and optionally email schedule link) OR return sites
 const getSiteInformation = async (req, res) => {
   try {
-    const { companyId, packageId, orderReasonId, dotAgency, formData = {}, createdBy } = req.body;
+    const { companyId, packageId, orderReasonId, dotAgency, formData = {} } = req.body;
 
     const user = await User.findById(companyId);
     if (!user) {
@@ -92,28 +91,27 @@ const getSiteInformation = async (req, res) => {
 
     const orgId = user.Membership?.orgId || "";
     const location_code = user.Membership?.locationCode || "";
-    const dotAgencyVal = (dotAgency || formData.dotAgency || "").trim();
 
     const package_code = packageId || "";
     const order_reason = orderReasonId || "";
     const formattedExpiration = formatDateTime(formData.orderExpires || "");
-    const orderReferenceNumber = generateOrderReference();
 
-    // who to email
+    const referenceNumber = generateOrderReference();
+
     let allEmails = "";
-    if ((formData.email || "").trim()) {
+    if ((formData.email || "").trim() !== "") {
       allEmails = (formData.email || "").trim();
-    } else if ((formData.ccEmail || "").trim()) {
+    } else if ((formData.ccEmail || "").trim() !== "") {
       allEmails = (formData.ccEmail || "").trim();
     }
 
     const payloadForCreate = {
-      dot_agency: dotAgencyVal,
+      dot_agency: dotAgency || "",
       expiration_date_time: formattedExpiration,
       lab_location_code: "",
       location_code,
       order_reason,
-      order_reference_number: orderReferenceNumber,
+      order_reference_number: referenceNumber,
       org_id: orgId,
       package_code: findPackageId(package_code),
       participant_address: formData.address || "",
@@ -129,99 +127,17 @@ const getSiteInformation = async (req, res) => {
       "report message": "",
     };
 
-    // Create vendor case
     const response = await axios.post(
       "https://ws.i3screen.net/api/scheduling/create",
       payloadForCreate,
       { headers: { "Content-Type": "application/json" }, auth: { username, password } }
     );
 
-    const caseNumber = response?.data?.case_number || "";
-    const scheduling_url = response?.data?.case_data?.scheduling_url || "";
+    const caseNumber = response?.data?.case_number;
+    const scheduling_url = response?.data?.case_data?.scheduling_url;
 
-    // --- UPSERT Result snapshot immediately (so we always have a row as soon as a case exists)
-    const baseSnapshot = {
-      user: companyId,
-      caseNumber,
-      date: new Date(),
-      orderStatus: "Pending",
-      resultStatus: "Pending",
-
-      // Company snapshot
-      companySnapshot: {
-        userId: companyId,
-        companyName: user.companyInfoData?.companyName || "",
-        orgId,
-        locationCode: location_code,
-      },
-
-      // Package / Reason / DOT
-      packageId: packageId || "",
-      packageName: packageId || "", // keeping your existing behavior
-      packageCode: findPackageId(packageId || ""),
-      orderReasonId: orderReasonId || "",
-      orderReason: orderReasonId || "",
-      dotAgency: dotAgencyVal,
-
-      // Order toggles + meta
-      sendLink: !!formData.sendLink,
-      donorPass: !!formData.donorPass,
-      observed: formData.observed === "1" || formData.observed === 1 || formData.observed === true,
-      orderExpiresInput: formData.orderExpires || "",
-      expirationDateTime: formattedExpiration,
-      orderReferenceNumber,
-      schedulingUrl: scheduling_url,
-
-      // Emails
-      toEmail: (formData.email || "").trim(),
-      ccEmail: (formData.ccEmail || "").trim(),
-      allEmails,
-
-      // Participant snapshot
-      participant: {
-        firstName: formData.firstName || "",
-        middleName: formData.middleName || "",
-        lastName: formData.lastName || "",
-        governmentId: formData.ssn || "",
-        ssnState: formData.ssnState || "",
-        dob: formData.dob || "",
-        phone1: formData.phone1 || "",
-        phone2: formData.phone2 || "",
-        email: (formData.email || "").trim(),
-      },
-
-      // Address snapshot
-      address: {
-        line1: formData.address || "",
-        line2: formData.address2 || "",
-        city: formData.city || "",
-        state: formData.state || "",
-        zip: formData.zip || "",
-      },
-
-      // Last site search context (if any)
-      siteSearch: {
-        searchRadius: "100",
-        postalCode: formData.zip || "",
-        country: "US",
-      },
-
-      // Vendor payload echo (for audit/debug)
-      vendorCreatePayload: payloadForCreate,
-      vendorCreateResponse: { case_number: caseNumber, case_data: { scheduling_url } },
-
-      // traceability
-      createdBy: createdBy || "Admin",
-    };
-
-    await Result.findOneAndUpdate(
-      { user: companyId, caseNumber },
-      { $setOnInsert: { date: new Date() }, $set: baseSnapshot },
-      { upsert: true, new: true }
-    );
-
-    // If Send Scheduling Link NOW: create driver, attach to Result, email link
     if (formData.sendLink === true) {
+      // Create Driver
       const newDriver = new Driver({
         user: companyId,
         government_id: formData.ssn || "",
@@ -236,21 +152,32 @@ const getSiteInformation = async (req, res) => {
         dob: formData.dob || "",
         isActive: false,
         creationDate: new Date().toISOString(),
-        createdBy: createdBy || "Admin",
+        createdBy: req.body.createdBy || "Admin",
       });
       await newDriver.save();
 
-      await Result.findOneAndUpdate(
-        { user: companyId, caseNumber },
-        {
-          $set: {
-            driverId: newDriver._id,
-            status: "Pending",
-          },
-        }
-      );
+      // Persist Result (now also storing package/dot agency/reason)
+      const resultToPush = new Result({
+        user: companyId,
+        driverId: newDriver._id,
+        caseNumber: caseNumber || "",
+        date: new Date(),
+        // existing
+        testType: orderReasonId || "",
+        status: "Pending",
+        // NEW fields
+        packageName: packageId || "",
+        packageCode: findPackageId(packageId || ""),
+        dotAgency: dotAgency || "",
+        orderReason: orderReasonId || "",
+        // legacy single-file fields (left empty for compatibility)
+        file: null,
+        filename: "",
+        mimeType: "",
+      });
+      await resultToPush.save();
 
-      // Email schedule URL
+      // Email link
       await scheduleUrlEmail(
         formData.email || allEmails,
         `${formData.firstName || ""} ${formData.lastName || ""}`.trim(),
@@ -263,12 +190,10 @@ const getSiteInformation = async (req, res) => {
         errorStatus: 0,
         message: "Case has been scheduled and Scheduling URL sent successfully",
         driverId: newDriver._id,
-        caseNumber,
-        scheduling_url,
       });
     }
 
-    // Otherwise: just fetch nearby sites (user will pick one, then we schedule)
+    // Fetch sites only (no driver/result creation here)
     const payloadForSites = {
       case_number: caseNumber,
       search_radius: "100",
@@ -287,19 +212,6 @@ const getSiteInformation = async (req, res) => {
     );
 
     const sites = siteResponse?.data?.sites || [];
-
-    // persist sites payload echo
-    await Result.findOneAndUpdate(
-      { user: companyId, caseNumber },
-      {
-        $set: {
-          vendorSitesPayload: payloadForSites,
-          vendorSitesResponseMeta: { count: sites.length },
-          lastSearchZip: formData.zip || "",
-        },
-      }
-    );
-
     return res.status(200).json({
       errorStatus: 0,
       message: "All site information retrieved successfully",
@@ -307,7 +219,6 @@ const getSiteInformation = async (req, res) => {
       caseNumber,
     });
   } catch (error) {
-    console.error("getSiteInformation error:", error?.response?.data || error.message);
     res.status(500).json({
       errorStatus: 1,
       message: "Server error, please try again later",
@@ -316,7 +227,6 @@ const getSiteInformation = async (req, res) => {
   }
 };
 
-// Update sites when zip changes in UI
 const handleNewPincode = async (req, res) => {
   try {
     const payloadForSites = {
@@ -337,26 +247,12 @@ const handleNewPincode = async (req, res) => {
     );
 
     const sites = siteResponse?.data?.sites || [];
-
-    // Update the Result snapshot with last search zip + payload echo
-    await Result.findOneAndUpdate(
-      { caseNumber: req.body.caseNumber, user: req.body.companyId },
-      {
-        $set: {
-          vendorSitesPayload: payloadForSites,
-          vendorSitesResponseMeta: { count: sites.length },
-          lastSearchZip: req.body.data || "",
-        },
-      }
-    );
-
     res.status(200).json({
       errorStatus: 0,
       message: "All site information retrieved successfully",
       data: sites,
     });
   } catch (error) {
-    console.error("handleNewPincode error:", error?.response?.data || error.message);
     res.status(500).json({
       errorStatus: 1,
       message: "Server error, please try again later",
@@ -365,81 +261,65 @@ const handleNewPincode = async (req, res) => {
   }
 };
 
-// User picked a site; schedule case; create driver; finalize snapshot
 const newDriverSubmitOrder = async (req, res) => {
   try {
-    const { companyId, orderReasonId, packageId, dotAgency, caseNumber, finlSelectedSite = {}, formData = {}, createdBy } = req.body;
-
-    const payloadForSchedule = {
-      case_number: caseNumber,
-      collection_site_link_id: finlSelectedSite?.collection_site_link_id,
+    const payloadForCreate = {
+      case_number: req.body.caseNumber,
+      collection_site_link_id: req.body.finlSelectedSite?.collection_site_link_id,
     };
 
     await axios.post(
       "https://ws.i3screen.net/api/scheduling/schedule",
-      payloadForSchedule,
+      payloadForCreate,
       { headers: { "Content-Type": "application/json" }, auth: { username, password } }
     );
 
-    // Create (or reuse) Driver
+    const { companyId, orderReasonId, packageId, dotAgency } = req.body;
+
+    // Create Driver
     const newDriver = new Driver({
       user: companyId,
-      government_id: formData?.ssn || "",
-      first_name: formData?.firstName || "",
-      last_name: formData?.lastName || "",
-      phone: formData?.phone1 || "",
-      email: formData?.email || "",
-      postal_code: formData?.zip || "",
-      region: formData?.state || "",
-      municipality: formData?.city || "",
-      address: formData?.address || "",
-      dob: formData?.dob || "",
+      government_id: req.body.formData?.ssn || "",
+      first_name: req.body.formData?.firstName || "",
+      last_name: req.body.formData?.lastName || "",
+      phone: req.body.formData?.phone1 || "",
+      email: req.body.formData?.email || "",
+      postal_code: req.body.formData?.zip || "",
+      region: req.body.formData?.state || "",
+      municipality: req.body.formData?.city || "",
+      address: req.body.formData?.address || "",
+      dob: req.body.formData?.dob || "",
       isActive: false,
       creationDate: new Date().toISOString(),
-      createdBy: createdBy || "Admin",
+      createdBy: req.body.createdBy || "Admin",
     });
     await newDriver.save();
 
-    // Update the existing Result snapshot instead of creating a duplicate
-    await Result.findOneAndUpdate(
-      { user: companyId, caseNumber },
-      {
-        $set: {
-          driverId: newDriver._id,
-          status: "Pending",
-
-          // ensure all order selections are stored (in case something changed between steps)
-          packageId: packageId || "",
-          packageName: packageId || "",
-          packageCode: findPackageId(packageId || ""),
-          orderReasonId: orderReasonId || "",
-          orderReason: orderReasonId || "",
-          dotAgency: (dotAgency || formData.dotAgency || "").trim(),
-
-          // selected site snapshot
-          selectedSite: {
-            collection_site_link_id: finlSelectedSite?.collection_site_link_id || "",
-            name: finlSelectedSite?.collection_site_name || "",
-            address: finlSelectedSite?.collection_site_address || "",
-            city: finlSelectedSite?.collection_site_city || "",
-            state: finlSelectedSite?.collection_site_state || "",
-            zip: finlSelectedSite?.collection_site_zip || "",
-            phone: finlSelectedSite?.collection_site_phone || "",
-            distance: finlSelectedSite?.distance || "",
-          },
-
-          // echo the vendor schedule payload
-          vendorSchedulePayload: payloadForSchedule,
-        },
-      },
-      { new: true }
-    );
+    // Persist Result (with package/dot agency/reason)
+    const resultToPush = new Result({
+      user: companyId,
+      driverId: newDriver._id,
+      caseNumber: req.body.caseNumber || "",
+      date: new Date(),
+      // existing
+      testType: orderReasonId || "",
+      status: "Pending",
+      // NEW fields
+      packageName: packageId || "",
+      packageCode: findPackageId(packageId || ""),
+      dotAgency: dotAgency || "",
+      orderReason: orderReasonId || "",
+      // legacy single-file fields (empty)
+      file: null,
+      filename: "",
+      mimeType: "",
+    });
+    await resultToPush.save();
 
     res.status(200).json({
       errorStatus: 0,
       message: "Case has been scheduled",
       driverId: newDriver._id,
-      caseNumber,
     });
   } catch (error) {
     const status = error?.response?.status;
@@ -449,7 +329,7 @@ const newDriverSubmitOrder = async (req, res) => {
         message: "Case has already been scheduled",
       });
     }
-    console.error("newDriverSubmitOrder error:", error?.response?.data || error.message);
+    console.error(error);
     res.status(500).json({
       errorStatus: 1,
       message: "Server error, please try again later",
