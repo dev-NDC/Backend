@@ -1,22 +1,21 @@
+// Controllers/Agency/CreateNewOrder.js
 const User = require("../../database/User");
-const Agency = require("../../database/Agency")
-const Result = require("../../database/Result");
 const Driver = require("../../database/Driver");
+const Result = require("../../database/Result");
+const Agency = require("../../database/Agency");
 
-const { scheduleUrlEmail } = require("./EmailTempletes/NewOrderEmail");
-
-const axios = require('axios');
+const axios = require("axios");
 const crypto = require("crypto");
-require('dotenv').config();
+const { scheduleUrlEmail } = require("./EmailTempletes/NewOrderEmail");
+require("dotenv").config();
+
 const username = process.env.USERID;
 const password = process.env.PASSWORD;
 
-
+/** Filter to only companies handled by the agency, and shape like admin */
 const getAllCompanyAllDetials = async (req, res) => {
   try {
-    const agencyId = req.user.id; // From JWT middleware or similar
-
-    // 1. Fetch the agency from the Agency model
+    const agencyId = req.user?.id;
     const agency = await Agency.findById(agencyId);
     if (!agency) {
       return res.status(403).json({
@@ -25,43 +24,41 @@ const getAllCompanyAllDetials = async (req, res) => {
       });
     }
 
-    // 2. Extract handled company IDs
-    const handledCompanyIds = agency.handledCompanies.map(c => c._id);
+    const handledCompanyIds = (agency.handledCompanies || []).map((c) => c._id);
 
-    // 3. Fetch users with those IDs and active membership
     const companies = await User.find({
       _id: { $in: handledCompanyIds },
-      "Membership.planStatus": "Active"
+      "Membership.planStatus": "Active",
     });
 
-    // 4. Format response data
-    const formattedCompanies = companies.map(company => ({
+    const formattedCompanies = companies.map((company) => ({
       _id: company._id,
-      companyName: company.companyInfoData.companyName || "",
-      companyDetails: company.companyInfoData,
-      packages: company.Membership?.package?.map(pkg => ({
-        _id: pkg._id,
-        packageName: pkg.package_name || "",
-      })) || [],
-      orderReasons: company.Membership?.order_reason?.map(reason => ({
-        _id: reason._id,
-        orderReasonName: reason.order_reason_name || "",
-      })) || [],
+      companyName: company.companyInfoData?.companyName || "",
+      companyDetails: company.companyInfoData || {},
+      packages:
+        company.Membership?.package?.map((pkg) => ({
+          _id: pkg._id,
+          packageName: pkg.package_name || "",
+        })) || [],
+      orderReasons:
+        company.Membership?.order_reason?.map((reason) => ({
+          _id: reason._id,
+          orderReasonName: reason.order_reason_name || "",
+        })) || [],
     }));
 
-    // 5. Sort alphabetically by companyName
     formattedCompanies.sort((a, b) =>
-      a.companyName.localeCompare(b.companyName, undefined, { sensitivity: 'base' })
+      a.companyName.localeCompare(b.companyName, undefined, { sensitivity: "base" })
     );
 
-    return res.status(200).json({
+    res.status(200).json({
       errorStatus: 0,
       message: "Handled company details retrieved successfully",
       data: formattedCompanies,
     });
-
   } catch (error) {
-    return res.status(500).json({
+    console.error("Agency getAllCompanyAllDetials error:", error);
+    res.status(500).json({
       errorStatus: 1,
       message: "Server error, please try again later",
       error: error.message,
@@ -69,308 +66,362 @@ const getAllCompanyAllDetials = async (req, res) => {
   }
 };
 
-
-
-
 function generateOrderReference() {
-    const uuid = crypto.randomUUID(); // 36 chars
-    const timestamp = Date.now().toString(36); // base36 for compactness (~7 chars)
-    const randomSuffix = crypto.randomBytes(1).toString("hex"); // 2 bytes = 2 chars
-
-    // Combine and trim/pad to exactly 45 characters
-    let reference = `${uuid}-${timestamp}-${randomSuffix}`.replace(/[^a-zA-Z0-9]/g, '');
-    return reference.slice(0, 45);
+  const uuid = crypto.randomUUID();
+  const timestamp = Date.now().toString(36);
+  const randomSuffix = crypto.randomBytes(1).toString("hex");
+  let reference = `${uuid}-${timestamp}-${randomSuffix}`.replace(/[^a-zA-Z0-9]/g, "");
+  return reference.slice(0, 45);
 }
+
 function formatDateTime(input) {
-    const [date, time] = input.split("T");
-    const [hour, minute] = time.split(":");
-    return `${date} ${hour}:${minute}:00`;
+  if (!input || !input.includes("T")) return "";
+  const [date, time] = input.split("T");
+  const [hour = "00", minute = "00"] = (time || "").split(":");
+  return `${date} ${hour}:${minute}:00`;
 }
 
 function findPackageId(package_code) {
-    const packageMap = {
-        "NDCDEMO": "NDCDEMO",
-        "5 PANEL URINE DOT LIKE": "5UDL",
-        "7 PANEL URINE": "7U",
-        "9 PANEL URINE": "9U",
-        "DOT BAT": "DOTBAT",
-        "DOT PANEL": "DOTU",
-        "DOT PANEL + DOT BAT": "DOTUBAT",
-        "DOT PHYSICAL": "DOTPHY"
-    };
-    return packageMap[package_code] || package_code;
+  const packageMap = {
+    NDCDEMO: "NDCDEMO",
+    "5 PANEL URINE DOT LIKE": "5UDL",
+    "7 PANEL URINE": "7U",
+    "9 PANEL URINE": "9U",
+    "DOT BAT": "DOTBAT",
+    "DOT PANEL": "DOTU",
+    "DOT PANEL + DOT BAT": "DOTUBAT",
+    "DOT PHYSICAL": "DOTPHY",
+  };
+  return packageMap[package_code] || package_code;
 }
 
+/** Mirrors admin logic, but allows agency to act for its handled companies */
 const getSiteInformation = async (req, res) => {
-    try {
-        const { companyId, packageId, orderReasonId,dotAgency, formData } = req.body;
-        const user = await User.findById(companyId);
-        const orgId = user.Membership?.orgId;
-        const location_code = user.Membership?.locationCode;
-        const package_code = packageId;
+  try {
+    const { companyId, packageId, orderReasonId, dotAgency, formData = {} } = req.body;
 
-        const order_reason = orderReasonId;
-        let expiration_date_time = formData.orderExpires;
-        let formattedExpiration = formatDateTime(expiration_date_time);
-
-        const referenceNumber = generateOrderReference();
-        let allEmails = "";
-        if (formData.email != "") {
-            allEmails += formData.email.trim();
-        } else if (formData.ccEmail.trim() !== "") {
-            allEmails = formData.ccEmail.trim();
-        }
-        const payloadForCreate = {
-            "dot_agency": dotAgency,
-            "expiration_date_time": formattedExpiration,
-            "lab_location_code": "",
-            "location_code": location_code,
-            "order_reason": order_reason,
-            "order_reference_number": referenceNumber,
-            "org_id": orgId,
-            "package_code": findPackageId(package_code),
-            "participant_address": formData.address,
-            "participant_dob": formData.dob,
-            "participant_email": allEmails,
-            "participant_first_name": formData.firstName,
-            "participant_government_id": formData.ssn,
-            "participant_last_name": formData.lastName,
-            "participant_municipality": formData.city,
-            "participant_phone": formData.phone1,
-            "participant_postal_code": formData.zip,
-            "participant_region": formData.state,
-            "report message": ""
-        };
-
-        const response = await axios.post(
-            'https://ws.i3screen.net/api/scheduling/create',
-            payloadForCreate,
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                auth: {
-                    username,
-                    password
-                }
-            }
-        );
-        const success = response.data.success;
-        const caseNumber = response.data.case_number;
-        const scheduling_url = response.data.case_data.scheduling_url;
-
-        if (formData.sendLink === true) {
-            // Create new driver document
-            const newDriver = new Driver({
-                user: companyId,
-                government_id: formData.ssn,
-                first_name: formData.firstName,
-                last_name: formData.lastName,
-                phone: formData.phone1,
-                email: formData.email,
-                postal_code: formData.zip,
-                region: formData.state,
-                municipality: formData.city,
-                address: formData.address,
-                dob: formData.dob,
-                isActive: false,
-                creationDate: new Date().toISOString(),
-                createdBy: req.body.createdBy || "Admin",
-            });
-            await newDriver.save();
-
-            // Create new result document
-            const resultToPush = new Result({
-                user: companyId,
-                driverId: newDriver._id,
-                caseNumber: caseNumber,
-                date: new Date(),
-                testType: orderReasonId,
-                status: "Pending",
-                file: null,
-                filename: "",
-                mimeType: ""
-            });
-            await resultToPush.save();
-            await scheduleUrlEmail(
-                formData.email,
-                `${formData.firstName} ${formData.lastName}`,
-                user.companyInfoData?.companyName || "NDC",
-                scheduling_url,
-                formattedExpiration
-            );
-            return res.status(200).json({
-                errorStatus: 0,
-                message: "Case has been scheduled and Scheduling URL sent successfully",
-                driverId: newDriver._id,
-            });
-        } else {
-            // Just fetch sites
-            const payloadForSites = {
-                "case_number": caseNumber,
-                "search_radius": "100",
-                "postal_code": formData.zip,
-                "address": "",
-                "municipality": "",
-                "province": "",
-                "country": "US",
-                "show_price": "0"
-            };
-            const siteResponse = await axios.post(
-                'https://ws.i3screen.net/api/scheduling/sitesv2',
-                payloadForSites,
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    auth: {
-                        username,
-                        password
-                    }
-                }
-            );
-            const siteData = siteResponse.data;
-            let sites = siteData.sites;
-            return res.status(200).json({
-                errorStatus: 0,
-                message: "All site information retrieved successfully",
-                data: sites,
-                caseNumber,
-            });
-        }
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error, please try again later",
-            error: error.response?.data || error.message,
-        });
+    // Ensure company is handled by this agency
+    const agencyId = req.user?.id;
+    const agency = await Agency.findById(agencyId);
+    if (!agency) {
+      return res.status(403).json({ errorStatus: 1, message: "Unauthorized" });
     }
-};
+    const handledIds = new Set((agency.handledCompanies || []).map((c) => String(c._id)));
+    if (!handledIds.has(String(companyId))) {
+      return res.status(403).json({
+        errorStatus: 1,
+        message: "Access denied. This company is not handled by your agency.",
+      });
+    }
 
+    const user = await User.findById(companyId);
+    if (!user) {
+      return res.status(404).json({ errorStatus: 1, message: "Company not found" });
+    }
+
+    const orgId = user.Membership?.orgId || "";
+    const location_code = user.Membership?.locationCode || "";
+
+    const package_code = packageId || "";
+    const order_reason = orderReasonId || "";
+    const formattedExpiration = formatDateTime(formData.orderExpires || "");
+    const referenceNumber = generateOrderReference();
+
+    // normalize participant email(s)
+    let allEmails = "";
+    if ((formData.email || "").trim() !== "") {
+      allEmails = (formData.email || "").trim();
+    } else if ((formData.ccEmail || "").trim() !== "") {
+      allEmails = (formData.ccEmail || "").trim();
+    }
+
+    const dotAgencyVal = (dotAgency || formData.dotAgency || "").trim();
+
+    const payloadForCreate = {
+      dot_agency: dotAgencyVal,
+      expiration_date_time: formattedExpiration,
+      lab_location_code: "",
+      location_code,
+      order_reason,
+      order_reference_number: referenceNumber,
+      org_id: orgId,
+      package_code: findPackageId(package_code),
+      participant_address: formData.address || "",
+      participant_dob: formData.dob || "",
+      participant_email: allEmails,
+      participant_first_name: formData.firstName || "",
+      participant_government_id: formData.ssn || "",
+      participant_last_name: formData.lastName || "",
+      participant_municipality: formData.city || "",
+      participant_phone: formData.phone1 || "",
+      participant_postal_code: formData.zip || "",
+      participant_region: formData.state || "",
+      "report message": "",
+    };
+
+    const response = await axios.post(
+      "https://ws.i3screen.net/api/scheduling/create",
+      payloadForCreate,
+      { headers: { "Content-Type": "application/json" }, auth: { username, password } }
+    );
+
+    const caseNumber = response?.data?.case_number;
+    const scheduling_url = response?.data?.case_data?.scheduling_url;
+
+    if (formData.sendLink === true) {
+      // Create Driver
+      const newDriver = new Driver({
+        user: companyId,
+        government_id: formData.ssn || "",
+        first_name: formData.firstName || "",
+        last_name: formData.lastName || "",
+        phone: formData.phone1 || "",
+        email: formData.email || "",
+        postal_code: formData.zip || "",
+        region: formData.state || "",
+        municipality: formData.city || "",
+        address: formData.address || "",
+        dob: formData.dob || "",
+        isActive: false,
+        creationDate: new Date().toISOString(),
+        createdBy: req.body.createdBy || "Agency",
+      });
+      await newDriver.save();
+
+      // Persist Result (flat, same as admin)
+      const resultToPush = new Result({
+        user: companyId,
+        driverId: newDriver._id,
+        caseNumber: caseNumber || "",
+        date: new Date(),
+
+        testType: orderReasonId || "",
+        status: "Pending",
+
+        packageName: packageId || "",
+        packageCode: findPackageId(packageId || ""),
+        dotAgency: dotAgencyVal || "",
+        orderReason: orderReasonId || "",
+
+        selectedPackageId: packageId || "",
+        selectedOrderReasonId: orderReasonId || "",
+        orderExpires: formData.orderExpires || "",
+        sendLink: !!formData.sendLink,
+        donorPass: !!formData.donorPass,
+        referenceNumber,
+        schedulingUrl: scheduling_url || "",
+
+        firstName: formData.firstName || "",
+        middleName: formData.middleName || "",
+        lastName: formData.lastName || "",
+        ssnEid: formData.ssn || "",
+        dobString: formData.dob || "",
+        phone1: formData.phone1 || "",
+        phone2: formData.phone2 || "",
+        email: formData.email || "",
+        ccEmail: formData.ccEmail || "",
+        observedBool: !!formData.observed,
+        address: formData.address || "",
+        address2: formData.address2 || "",
+        city: formData.city || "",
+        state: formData.state || "",
+        zip: formData.zip || "",
+
+        file: null,
+        filename: "",
+        mimeType: "",
+      });
+      await resultToPush.save();
+
+      // Email link
+      await scheduleUrlEmail(
+        formData.email || allEmails,
+        `${formData.firstName || ""} ${formData.lastName || ""}`.trim(),
+        user.companyInfoData?.companyName || "NDC",
+        scheduling_url || "",
+        formattedExpiration || ""
+      );
+
+      return res.status(200).json({
+        errorStatus: 0,
+        message: "Case has been scheduled and Scheduling URL sent successfully",
+        driverId: newDriver._id,
+      });
+    }
+
+    // Only fetch sites
+    const payloadForSites = {
+      case_number: caseNumber,
+      search_radius: "100",
+      postal_code: formData.zip || "",
+      address: "",
+      municipality: "",
+      province: "",
+      country: "US",
+      show_price: "0",
+    };
+
+    const siteResponse = await axios.post(
+      "https://ws.i3screen.net/api/scheduling/sitesv2",
+      payloadForSites,
+      { headers: { "Content-Type": "application/json" }, auth: { username, password } }
+    );
+
+    const sites = siteResponse?.data?.sites || [];
+    return res.status(200).json({
+      errorStatus: 0,
+      message: "All site information retrieved successfully",
+      data: sites,
+      caseNumber,
+    });
+  } catch (error) {
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error, please try again later",
+      error: error?.response?.data || error.message,
+    });
+  }
+};
 
 const handleNewPincode = async (req, res) => {
+  try {
+    const payloadForSites = {
+      case_number: req.body.caseNumber,
+      search_radius: "100",
+      postal_code: req.body.data,
+      address: "",
+      municipality: "",
+      province: "",
+      country: "US",
+      show_price: "0",
+    };
 
-    try {
-        const payloadForSites = {
-            "case_number": req.body.caseNumber,
-            "search_radius": "100",
-            "postal_code": req.body.data,
-            "address": "",
-            "municipality": "",
-            "province": "",
-            "country": "US",
-            "show_price": "0"
-        }
-        const siteResponse = await axios.post(
-            'https://ws.i3screen.net/api/scheduling/sitesv2',
-            payloadForSites,
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                auth: {
-                    username,
-                    password
-                }
-            }
-        );
-        const siteData = siteResponse.data;
-        const siteSuccess = siteData.success;
-        let sites = siteData.sites;
-        res.status(200).json({
-            errorStatus: 0,
-            message: "All site information retrieved successfully",
-            data: sites,
-        });
-    } catch (error) {
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error, please try again later",
-            error: error.response?.data || error.message,
-        });
-    }
-}
+    const siteResponse = await axios.post(
+      "https://ws.i3screen.net/api/scheduling/sitesv2",
+      payloadForSites,
+      { headers: { "Content-Type": "application/json" }, auth: { username, password } }
+    );
 
-
-const newDriverSubmitOrder = async (req, res) => {
-    try {
-        const payloadForCreate = {
-            case_number: req.body.caseNumber,
-            collection_site_link_id: req.body.finlSelectedSite.collection_site_link_id,
-        };
-
-        const response = await axios.post(
-            "https://ws.i3screen.net/api/scheduling/schedule",
-            payloadForCreate,
-            {
-                headers: { "Content-Type": "application/json" },
-                auth: { username, password }
-            }
-        );
-
-        const { companyId, orderReasonId } = req.body;
-
-        // Create new driver document
-        const newDriver = new Driver({
-            user: companyId,
-            government_id: req.body.formData.ssn,
-            first_name: req.body.formData.firstName,
-            last_name: req.body.formData.lastName,
-            phone: req.body.formData.phone1,
-            email: req.body.formData.email,
-            postal_code: req.body.formData.zip,
-            region: req.body.formData.state,
-            municipality: req.body.formData.city,
-            address: req.body.formData.address,
-            dob: req.body.formData.dob,
-            isActive: false,
-            creationDate: new Date().toISOString(),
-            createdBy: req.body.createdBy || "Admin",
-        });
-        await newDriver.save();
-
-        // Create new result document
-        const resultToPush = new Result({
-            user: companyId,
-            driverId: newDriver._id,
-            caseNumber: req.body.caseNumber,
-            date: new Date(),
-            testType: orderReasonId,
-            status: "Pending",
-            file: null,
-            filename: "",
-            mimeType: ""
-        });
-        await resultToPush.save();
-
-        res.status(200).json({
-            errorStatus: 0,
-            message: "Case has been scheduled",
-            driverId: newDriver._id,
-        });
-    } catch (error) {
-        const status = error.response?.status;
-        if (status === 422) {
-            return res.status(442).json({
-                errorStatus: 1,
-                message: "Case has already been scheduled"
-            });
-        }
-
-        console.error(error);
-        res.status(500).json({
-            errorStatus: 1,
-            message: "Server error, please try again later",
-        });
-    }
+    const sites = siteResponse?.data?.sites || [];
+    res.status(200).json({
+      errorStatus: 0,
+      message: "All site information retrieved successfully",
+      data: sites,
+    });
+  } catch (error) {
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error, please try again later",
+      error: error?.response?.data || error.message,
+    });
+  }
 };
 
+const newDriverSubmitOrder = async (req, res) => {
+  try {
+    const payloadForCreate = {
+      case_number: req.body.caseNumber,
+      collection_site_link_id: req.body.finlSelectedSite?.collection_site_link_id,
+    };
 
+    await axios.post(
+      "https://ws.i3screen.net/api/scheduling/schedule",
+      payloadForCreate,
+      { headers: { "Content-Type": "application/json" }, auth: { username, password } }
+    );
 
+    const { companyId, orderReasonId, packageId, dotAgency, formData = {} } = req.body;
+
+    // Create Driver
+    const newDriver = new Driver({
+      user: companyId,
+      government_id: formData?.ssn || "",
+      first_name: formData?.firstName || "",
+      last_name: formData?.lastName || "",
+      phone: formData?.phone1 || "",
+      email: formData?.email || "",
+      postal_code: formData?.zip || "",
+      region: formData?.state || "",
+      municipality: formData?.city || "",
+      address: formData?.address || "",
+      dob: formData?.dob || "",
+      isActive: false,
+      creationDate: new Date().toISOString(),
+      createdBy: req.body.createdBy || "Agency",
+    });
+    await newDriver.save();
+
+    const dotAgencyVal = (dotAgency || formData?.dotAgency || "").trim();
+
+    // Persist Result (flat, same keys as admin)
+    const resultToPush = new Result({
+      user: companyId,
+      driverId: newDriver._id,
+      caseNumber: req.body.caseNumber || "",
+      date: new Date(),
+
+      testType: orderReasonId || "",
+      status: "Pending",
+
+      packageName: packageId || "",
+      packageCode: findPackageId(packageId || ""),
+      dotAgency: dotAgencyVal || "",
+      orderReason: orderReasonId || "",
+
+      selectedPackageId: packageId || "",
+      selectedOrderReasonId: orderReasonId || "",
+      orderExpires: formData.orderExpires || "",
+      sendLink: !!formData.sendLink,
+      donorPass: !!formData.donorPass,
+      referenceNumber: "",
+      schedulingUrl: "",
+
+      firstName: formData.firstName || "",
+      middleName: formData.middleName || "",
+      lastName: formData.lastName || "",
+      ssnEid: formData.ssn || "",
+      dobString: formData.dob || "",
+      phone1: formData.phone1 || "",
+      phone2: formData.phone2 || "",
+      email: formData.email || "",
+      ccEmail: formData.ccEmail || "",
+      observedBool: !!formData.observed,
+      address: formData.address || "",
+      address2: formData.address2 || "",
+      city: formData.city || "",
+      state: formData.state || "",
+      zip: formData.zip || "",
+
+      file: null,
+      filename: "",
+      mimeType: "",
+    });
+    await resultToPush.save();
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Case has been scheduled",
+      driverId: newDriver._id,
+    });
+  } catch (error) {
+    const status = error?.response?.status;
+    if (status === 422) {
+      return res.status(442).json({
+        errorStatus: 1,
+        message: "Case has already been scheduled",
+      });
+    }
+    console.error(error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error, please try again later",
+    });
+  }
+};
 
 module.exports = {
-    getAllCompanyAllDetials,
-    getSiteInformation,
-    newDriverSubmitOrder,
-    handleNewPincode
-}
+  getAllCompanyAllDetials,
+  getSiteInformation,
+  newDriverSubmitOrder,
+  handleNewPincode,
+};
