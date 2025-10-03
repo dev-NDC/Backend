@@ -9,19 +9,19 @@ const {
   getAllUserData,
   getSingleUserDetails,
   updateCompanyInformation,
-  updatePaymentInformation
+  updatePaymentInformation,
 } = require("../../Controllers/Agency/UserData");
 const { AddDriver, updateDriver, deleteDriver } = require("../../Controllers/Agency/Driver");
 const { agencyAuth } = require("../../Middleware/agencyAuth");
 
-// ✅ NEW: import the finder (we reuse the Admin controller function)
+// ✅ Reuse the Admin controller function for finding managing agency
 const { findAgencyByCompanyName } = require("../../Controllers/Admin/Agency");
 
 // routes for agency dashboard
 const {
   getCustomerAndAgencyCount,
   getUserCountsLast6Months,
-  getMonthlyTestScheduleStats
+  getMonthlyTestScheduleStats,
 } = require("../../Controllers/Agency/Dashboard");
 AgencyRoutes.get("/getCustomerAndAgencyCount", agencyAuth, getCustomerAndAgencyCount);
 AgencyRoutes.get("/getUserCountsLast6Months", agencyAuth, getUserCountsLast6Months);
@@ -48,7 +48,7 @@ const {
   getAllCompanyAllDetials,
   getSiteInformation,
   newDriverSubmitOrder,
-  handleNewPincode
+  handleNewPincode,
 } = require("../../Controllers/Agency/CreateNewOrder");
 AgencyRoutes.get("/getAllCompanyAllDetials", agencyAuth, getAllCompanyAllDetials);
 AgencyRoutes.post("/getSiteInformation", agencyAuth, getSiteInformation);
@@ -61,7 +61,7 @@ const {
   fetchRandomDriver,
   fetchRandomData,
   deleteRandomEntry,
-  updateRandomStatus
+  updateRandomStatus,
 } = require("../../Controllers/Agency/Random");
 AgencyRoutes.post("/addRandomDriver", agencyAuth, addRandomDriver);
 AgencyRoutes.get("/fetchRandomDriver", agencyAuth, fetchRandomDriver);
