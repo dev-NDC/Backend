@@ -82,9 +82,9 @@ const exportDriver = async (req, res) => {
             }
         }
         
-        // Fetch drivers with populated user data
-        const drivers = await Driver.find().populate('user', 'companyInfoData').lean();
-        console.log("Drivers from DB:", drivers.length);
+        // Fetch only active drivers (those with negative test results)
+        const drivers = await Driver.find({ isActive: true, isDeleted: false }).populate('user', 'companyInfoData').lean();
+        console.log("Active Drivers from DB:", drivers.length);
         
         const formattedDrivers = [];
         for (const driver of drivers) {
