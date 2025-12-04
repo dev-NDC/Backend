@@ -57,45 +57,57 @@ const exportAgency = async (req, res) => {
 
 const exportDriver = async (req, res) => {
     try {
-        // Fetch all agencies with handledCompanies
-
-console.log("Fetching agencies...");
-
-        // console.log("Exporting drivers...");
+        
         const agencies = await Agency.find().lean();
 
-        // Fetch all users (companies), who contain drivers
+        // Fetch all users (companies)
         const users = await User.find().lean();
-        // console.log({users}+"       "+{agencies});
-        // Build a map from company ID to agency name
+        
+        // Build maps from company ID to agency name, company name, and email
         const companyIdToAgencyMap = {};
         const companyIdToCompanyNameMap = {};
         const companyIdToCompanyEmailMap = {};
 
         for (const user of users) {
-            companyIdToCompanyNameMap[user._id.toString()] = user.companyInfoData?.companyName || "N/A";
-            companyIdToCompanyEmailMap[user._id.toString()] = user.companyInfoData?.companyEmail || "N/A";
+            const userId = user._id.toString();
+            companyIdToCompanyNameMap[userId] = user.companyInfoData?.companyName || "N/A";
+            companyIdToCompanyEmailMap[userId] = user.companyInfoData?.companyEmail || "N/A";
         }
+        
         for (const agency of agencies) {
             for (const company of agency.handledCompanies || []) {
-                companyIdToAgencyMap[company._id.toString()] = agency.name;
+                if (company && company._id) {
+                    companyIdToAgencyMap[company._id.toString()] = agency.name || "N/A";
+                }
             }
         }
-        const drivers = await Driver.find().lean();
-        console.log("Drivers from DB:", drivers);
-        // console.log("Company to Agency Map:", companyIdToAgencyMap);
+        
+        // Fetch drivers with populated user data
+        const drivers = await Driver.find().populate('user', 'companyInfoData').lean();
+        console.log("Drivers from DB:", drivers.length);
+        
         const formattedDrivers = [];
         for (const driver of drivers) {
+            if (!driver || !driver.user) {
+                console.warn("Driver missing user data:", driver?._id);
+                continue;
+            }
+            
+            const userId = driver.user._id ? driver.user._id.toString() : null;
+            if (!userId) {
+                console.warn("Driver user missing _id:", driver._id);
+                continue;
+            }
+            
             formattedDrivers.push({
-                agencyName: companyIdToAgencyMap[driver.user.toString()] || "N/A",
-                companyName: companyIdToCompanyNameMap[driver.user.toString()] || "N/A",
-                companyEmail: companyIdToCompanyEmailMap[driver.user.toString()] || "N/A",
+                agencyName: companyIdToAgencyMap[userId] || "N/A",
+                companyName: companyIdToCompanyNameMap[userId] || "N/A",
+                companyEmail: companyIdToCompanyEmailMap[userId] || "N/A",
                 ...driver,
             });
-
-
         }
-        console.log("Formatted Drivers:", formattedDrivers);
+        
+        console.log("Formatted Drivers:", formattedDrivers.length);
         res.status(200).json({
             errorStatus: 0,
             message: "Driver export successful",
@@ -103,11 +115,8 @@ console.log("Fetching agencies...");
         });
 
     } catch (error) {
-
-            console.error("Error exporting drivers:", error);
-
+        console.error("Error exporting drivers:", error);
         res.status(500).json({
-
             errorStatus: 1,
             message: "Failed to export drivers",
             error: error.message,
