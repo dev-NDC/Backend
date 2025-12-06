@@ -2,8 +2,6 @@ const User = require("../../database/User");
 const Agency = require("../../database/Agency");
 const Driver = require("../../database/Driver");
 
-
-
 const exportAgency = async (req, res) => {
     try {
         const agencies = await Agency.find({}, "name handledCompanies createdAt");
@@ -83,13 +81,22 @@ const exportDriver = async (req, res) => {
         }
         
         // Fetch only active drivers (those with negative test results)
-        const drivers = await Driver.find({ isActive: true, isDeleted: false }).populate('user', 'companyInfoData').lean();
+        const drivers = await Driver.find({ isActive: true, isDeleted: false })
+            .populate('user', 'companyInfoData Membership')
+            .lean();
         console.log("Active Drivers from DB:", drivers.length);
         
         const formattedDrivers = [];
         for (const driver of drivers) {
             if (!driver || !driver.user) {
                 console.warn("Driver missing user data:", driver?._id);
+                continue;
+            }
+            
+            // Skip drivers from inactive companies
+            const companyStatus = driver.user.Membership?.planStatus;
+            if (companyStatus !== 'Active') {
+                console.log(`Skipping driver from inactive company: ${driver._id}`);
                 continue;
             }
             
@@ -166,7 +173,6 @@ const exportCompany = async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to export company data." });
     }
 };
-
 
 
 module.exports = { exportAgency, exportDriver, exportCompany }
