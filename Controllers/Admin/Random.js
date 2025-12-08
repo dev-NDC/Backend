@@ -263,6 +263,94 @@ const sendEmailToRandomDriver = async (req, res) => {
   }
 };
 
+const getScheduleDataFromRandom = async (req, res) => {
+  try {
+    const { randomId } = req.body;
+    
+    if (!randomId) {
+      return res.status(400).json({
+        errorStatus: 1,
+        message: "Random ID is required"
+      });
+    }
+
+    // Get Random entry
+    const randomEntry = await Random.findById(randomId);
+    if (!randomEntry) {
+      return res.status(404).json({
+        errorStatus: 1,
+        message: "Random entry not found"
+      });
+    }
+
+    // Get Driver details
+    const driver = await Driver.findById(randomEntry.driver._id);
+    if (!driver) {
+      return res.status(404).json({
+        errorStatus: 1,
+        message: "Driver not found"
+      });
+    }
+
+    // Get Company details
+    const company = await User.findById(randomEntry.company._id);
+    if (!company) {
+      return res.status(404).json({
+        errorStatus: 1,
+        message: "Company not found"
+      });
+    }
+
+    // Build prefill object
+    const prefillData = {
+      // ORDER INFO
+      companyName: randomEntry.company.name,
+      companyEmail: company.companyInfoData?.companyEmail || "",
+      packageName: "",
+      orderReason: randomEntry.testType,
+      dotAgency: company.companyInfoData?.safetyAgencyName || "",
+
+      // PARTICIPANT INFO
+      firstName: driver.first_name || "",
+      middleName: "",
+      lastName: driver.last_name || "",
+      ssnEid: driver.government_id || "",
+      dob: driver.dob || "",
+      phone1: driver.phone || "",
+      phone2: "",
+      observed: false,
+      orderExpires: "",
+
+      // ADDRESS
+      addr1: driver.address || "",
+      addr2: "",
+      city: driver.municipality || "",
+      stateShort: driver.region || "",
+      zip: driver.postal_code || "",
+
+      // COMMUNICATIONS
+      sendSchedulingLink: false,
+      sendDonorPass: true,
+      email: driver.email || "",
+      ccEmails: company.companyInfoData?.companyEmail || "",
+    };
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Schedule data fetched successfully",
+      data: prefillData
+    });
+
+  } catch (error) {
+    console.error("Error fetching schedule data:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error, please try again later",
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   addRandomDriver,
   fetchRandomDriver,
@@ -270,4 +358,5 @@ module.exports = {
   deleteRandomEntry,
   updateRandomStatus,
   sendEmailToRandomDriver,
+  getScheduleDataFromRandom,
 };
