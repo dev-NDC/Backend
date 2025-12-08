@@ -60,7 +60,8 @@ const {
   fetchRandomData,
   deleteRandomEntry,
   updateRandomStatus,
-  sendEmailToRandomDriver
+  sendEmailToRandomDriver,
+  getScheduleDataFromRandom
 } = require("../../Controllers/Admin/Random");
 
 // export routes
@@ -144,6 +145,7 @@ AdminRoutes.get("/fetchRandomData", adminAuth, fetchRandomData);
 AdminRoutes.post("/deleteRandomDriver", adminAuth, deleteRandomEntry);
 AdminRoutes.post("/updateRandomStatus", adminAuth, updateRandomStatus);
 AdminRoutes.post("/sendEmailToRandomDriver", adminAuth, sendEmailToRandomDriver);
+AdminRoutes.post("/getScheduleDataFromRandom", adminAuth, getScheduleDataFromRandom);
 
 // ----------------- Export -----------------
 AdminRoutes.get("/exportAgency", adminAuth, exportAgency);
