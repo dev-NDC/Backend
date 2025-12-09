@@ -1,6 +1,7 @@
 const Driver = require("../../database/Driver");
 const User = require("../../database/User");
 const Random = require("../../database/Random");
+const Result = require("../../database/Result");
 const {RandomDriver} = require("./EmailTempletes/Random")
 
 
@@ -132,8 +133,8 @@ const addRandomDriver = async (req, res) => {
 
 const fetchRandomData = async (req, res) => {
   try {
-    // Get all random entries
-    const allRandoms = await Random.find({});
+    // Get all random entries and populate Result data
+    const allRandoms = await Random.find({}).populate('resultId', 'orderStatus resultStatus caseNumber');
 
     const response = allRandoms.map(entry => ({
       _id: entry._id,
@@ -142,7 +143,10 @@ const fetchRandomData = async (req, res) => {
       year: entry.year,
       quarter: entry.quarter,
       testType: entry.testType,
-      status: entry.status
+      status: entry.status,
+      orderStatus: entry.resultId?.orderStatus || null,
+      resultStatus: entry.resultId?.resultStatus || null,
+      caseNumber: entry.resultId?.caseNumber || null
     }));
 
     res.status(200).json({
@@ -351,6 +355,46 @@ const getScheduleDataFromRandom = async (req, res) => {
   }
 };
 
+const linkRandomToResult = async (req, res) => {
+  try {
+    const { randomId, resultId } = req.body;
+
+    if (!randomId || !resultId) {
+      return res.status(400).json({
+        errorStatus: 1,
+        message: "Random ID and Result ID are required"
+      });
+    }
+
+    const randomEntry = await Random.findByIdAndUpdate(
+      randomId,
+      { resultId },
+      { new: true }
+    );
+
+    if (!randomEntry) {
+      return res.status(404).json({
+        errorStatus: 1,
+        message: "Random entry not found"
+      });
+    }
+
+    res.status(200).json({
+      errorStatus: 0,
+      message: "Random entry linked to result successfully",
+      data: randomEntry
+    });
+
+  } catch (error) {
+    console.error("Error linking random to result:", error);
+    res.status(500).json({
+      errorStatus: 1,
+      message: "Server error, please try again later",
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   addRandomDriver,
   fetchRandomDriver,
@@ -359,4 +403,5 @@ module.exports = {
   updateRandomStatus,
   sendEmailToRandomDriver,
   getScheduleDataFromRandom,
+  linkRandomToResult,
 };
