@@ -21,7 +21,8 @@ const randomSchema = new mongoose.Schema({
     type: String,
     enum: ['Pending', 'Completed', 'Scheduled'],
     default: 'Pending'
-  }
+  },
+  resultId: { type: mongoose.Schema.Types.ObjectId, ref: 'Result', default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model("Random", randomSchema);
