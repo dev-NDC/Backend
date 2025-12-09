@@ -224,6 +224,7 @@ const getSiteInformation = async (req, res) => {
         errorStatus: 0,
         message: "Case has been scheduled and Scheduling URL sent successfully",
         driverId: newDriver._id,
+        resultId: resultToPush._id,
       });
     }
 
@@ -386,6 +387,7 @@ const newDriverSubmitOrder = async (req, res) => {
       errorStatus: 0,
       message: "Case has been scheduled",
       driverId: newDriver._id,
+      resultId: resultToPush._id,
     });
   } catch (error) {
     const status = error?.response?.status;
