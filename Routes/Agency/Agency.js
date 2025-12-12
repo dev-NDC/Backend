@@ -62,12 +62,18 @@ const {
   fetchRandomData,
   deleteRandomEntry,
   updateRandomStatus,
+  sendEmailToRandomDriver,
+  getScheduleDataFromRandom,
+  linkRandomToResult
 } = require("../../Controllers/Agency/Random");
 AgencyRoutes.post("/addRandomDriver", agencyAuth, addRandomDriver);
 AgencyRoutes.get("/fetchRandomDriver", agencyAuth, fetchRandomDriver);
 AgencyRoutes.get("/fetchRandomData", agencyAuth, fetchRandomData);
 AgencyRoutes.post("/deleteRandomDriver", agencyAuth, deleteRandomEntry);
 AgencyRoutes.post("/updateRandomStatus", agencyAuth, updateRandomStatus);
+AgencyRoutes.post("/sendEmailToRandomDriver", agencyAuth, sendEmailToRandomDriver);
+AgencyRoutes.post("/getScheduleDataFromRandom", agencyAuth, getScheduleDataFromRandom);
+AgencyRoutes.post("/linkRandomToResult", agencyAuth, linkRandomToResult);
 
 // ✅ NEW: managing-agency lookup by company name
 AgencyRoutes.post("/findAgencyByCompanyName", agencyAuth, findAgencyByCompanyName);
