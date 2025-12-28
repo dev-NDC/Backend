@@ -2,6 +2,7 @@ const User = require("../../database/User");
 const Random = require("../../database/Random");
 const Driver = require("../../database/Driver");
 const Result = require("../../database/Result");
+const Agency = require("../../database/Agency");
 const {RandomDriver} = require("../Admin/EmailTempletes/Random");
 
 const fetchRandomDriver = async (req, res) => {
@@ -115,8 +116,30 @@ const addRandomDriver = async (req, res) => {
 
 const fetchRandomData = async (req, res) => {
     try {
-        // 1. Fetch all Random entries
-        const allRandoms = await Random.find();
+        const agencyId = req.user.id;
+        const currentAgency = await Agency.findById(agencyId);
+        
+        if (!currentAgency) {
+            return res.status(404).json({
+                errorStatus: 1,
+                message: "Agency not found",
+            });
+        }
+
+        const handledCompanyIds = currentAgency.handledCompanies?.map(c => c._id.toString()) || [];
+        
+        if (handledCompanyIds.length === 0) {
+            return res.status(200).json({
+                errorStatus: 0,
+                message: "No companies handled yet",
+                data: [],
+            });
+        }
+
+        // 1. Fetch Random entries only for handled companies
+        const allRandoms = await Random.find({
+            'company._id': { $in: handledCompanyIds }
+        });
 
         // 2. Gather unique company and driver IDs
         const companyIds = [...new Set(allRandoms.map(r => r.company._id.toString()))];
