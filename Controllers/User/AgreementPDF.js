@@ -460,12 +460,17 @@ regulatory requirements.`);
         currentY += rowHeight;
 
         // Table Body Rows
+        const planPriceText = (planName === "Plus" || planName === "plus") 
+            ? `$${planPrice}/Year (Up to 5 drivers, $25 per additional driver after 5)` 
+            : `$${planPrice}/Year`;
+        
         const rows = [
-            [`${planName}`, `$${planPrice}/Year`],
+            [`${planName}`, planPriceText],
             ["DOT Panel Drug Test (URINE)", "$79/Test"],
+            ["Non-DOT Drug Test", "$75/Test"],
             ["Observed DOT Test", "$79 + $35/Test"],
-            ["Breath & Alcohol Test (BAT)", "$79/Test"],
-            ["Third Party Testing Location", "$79 + Additional Charges based on Lab."]
+            ["Breath & Alcohol Test (BAT)", "$65/Test"],
+            ["Third Party Testing Location", "Additional Charges based on Lab."]
         ];
 
         doc.font("Times-Roman").fillColor("black");

@@ -131,7 +131,7 @@ const signup = async (req, res) => {
         locationCode = await getLocationCode(req.body, orgId);
       }
     }
-    const planPrice = req.body.Membership.selectedPlan === 1 ? 99 : req.body.Membership.selectedPlan === 2 ? 150 : 275;
+    const planPrice = req.body.Membership.selectedPlan === 1 ? 99 : req.body.Membership.selectedPlan === 2 ? 150 : 499;
     newUser.contactInfoData.email = email.toLowerCase();
     newUser.Membership.orgId = orgId;
     newUser.Membership.locationCode = locationCode;
